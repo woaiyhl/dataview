@@ -141,14 +141,16 @@ export default function ChartPanel({
         </Space>
       }
     >
-      <ReactECharts
-        ref={chartRef}
-        option={option}
-        style={{ height: "500px", width: "100%", cursor: annotateMode ? "crosshair" : "default" }}
-        notMerge={true}
-        lazyUpdate={true}
-        onEvents={onChartEvents}
-      />
+      <div onContextMenu={(e) => e.preventDefault()}>
+        <ReactECharts
+          ref={chartRef}
+          option={option}
+          style={{ height: "500px", width: "100%", cursor: annotateMode ? "crosshair" : "default" }}
+          notMerge={true}
+          lazyUpdate={true}
+          onEvents={onChartEvents}
+        />
+      </div>
     </Card>
   );
 }

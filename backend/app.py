@@ -252,9 +252,9 @@ def get_data(dataset_id):
         query = query.filter_by(metric=target_metric)
     
     if start_str:
-        query = query.filter(DataPoint.timestamp >= datetime.fromisoformat(start_str))
+        query = query.filter(DataPoint.timestamp >= datetime.fromisoformat(start_str.replace('Z', '+00:00')))
     if end_str:
-        query = query.filter(DataPoint.timestamp <= datetime.fromisoformat(end_str))
+        query = query.filter(DataPoint.timestamp <= datetime.fromisoformat(end_str.replace('Z', '+00:00')))
         
     # Sort by timestamp
     points = query.order_by(DataPoint.timestamp).all()
@@ -325,6 +325,42 @@ def get_stats(dataset_id):
             'count': s.count
         })
     return jsonify(result)
+
+@app.route('/api/download/<int:dataset_id>', methods=['GET'])
+def download_data(dataset_id):
+    start_str = request.args.get('start')
+    end_str = request.args.get('end')
+    target_metric = request.args.get('metric')
+
+    query = DataPoint.query.filter_by(dataset_id=dataset_id)
+    if target_metric:
+        query = query.filter_by(metric=target_metric)
+    if start_str:
+        query = query.filter(DataPoint.timestamp >= datetime.fromisoformat(start_str.replace('Z', '+00:00')))
+    if end_str:
+        query = query.filter(DataPoint.timestamp <= datetime.fromisoformat(end_str.replace('Z', '+00:00')))
+    
+    points = query.order_by(DataPoint.timestamp).all()
+    
+    # Generate CSV in memory
+    import io
+    import csv
+    
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(['timestamp', 'metric', 'value'])
+    
+    for p in points:
+        writer.writerow([p.timestamp.isoformat(), p.metric, p.value])
+        
+    output.seek(0)
+    
+    from flask import Response
+    return Response(
+        output.getvalue(),
+        mimetype="text/csv",
+        headers={"Content-disposition": f"attachment; filename=data_{dataset_id}.csv"}
+    )
 
 if __name__ == '__main__':
     with app.app_context():

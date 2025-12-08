@@ -487,6 +487,8 @@ const App = () => {
     return {
       tooltip: {
         trigger: "axis",
+        enterable: false,
+        extraCssText: "pointer-events: none;",
       },
       // 移除 ECharts 顶部右侧工具栏（框内按钮）
       xAxis: {
@@ -535,49 +537,52 @@ const App = () => {
       }
     },
     contextmenu: (params) => {
-      params.event.stop();
+      // 1. Safe Event Handling
+      const nativeEvent = params.event?.event;
+      if (nativeEvent) {
+        nativeEvent.preventDefault();
+      }
+      if (params.event) {
+        params.event.stop();
+      }
+
+      if (!nativeEvent) return;
 
       let targetAnnotation = null;
 
-      // 1. Direct component check
+      // 2. Direct component check (点击到 markArea 本身)
       if (params.componentType === "markArea") {
         targetAnnotation = annotations.find((a) => a.content === params.name);
       }
 
-      // 2. Fallback: Coordinate check
+      // 3. Fallback: Coordinate check
       if (!targetAnnotation) {
         const chartInstance = chartRef.current?.getEchartsInstance();
         if (chartInstance) {
-          const point = [params.event.event.offsetX, params.event.event.offsetY];
-          if (chartInstance.containPixel("grid", point)) {
-            const dateVal = chartInstance.convertFromPixel({ seriesIndex: 0 }, point)[0];
-            const time = new Date(dateVal).getTime();
+          const point = [nativeEvent.offsetX, nativeEvent.offsetY];
 
-            // Find annotation containing this time
-            targetAnnotation = annotations.find((ann) => {
-              const start = new Date(ann.start_time).getTime();
-              const end = new Date(ann.end_time).getTime();
-              return time >= start && time <= end;
-            });
+          if (chartInstance.containPixel("grid", point)) {
+            const pointInGrid = chartInstance.convertFromPixel({ seriesIndex: 0 }, point);
+            if (pointInGrid) {
+              const dateVal = pointInGrid[0];
+              const time = new Date(dateVal).getTime();
+
+              targetAnnotation = annotations.find((ann) => {
+                const start = new Date(ann.start_time).getTime();
+                const end = new Date(ann.end_time).getTime();
+                return time >= start && time <= end;
+              });
+            }
           }
         }
       }
 
-      if (targetAnnotation) {
-        setContextMenu({
-          visible: true,
-          x: params.event.event.clientX,
-          y: params.event.event.clientY,
-          annotation: targetAnnotation,
-        });
-      } else {
-        setContextMenu({
-          visible: true,
-          x: params.event.event.clientX,
-          y: params.event.event.clientY,
-          annotation: null,
-        });
-      }
+      setContextMenu({
+        visible: true,
+        x: nativeEvent.clientX,
+        y: nativeEvent.clientY,
+        annotation: targetAnnotation || null,
+      });
     },
   };
 
