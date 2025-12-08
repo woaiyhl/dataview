@@ -2,9 +2,7 @@ import os
 import pandas as pd
 import shutil
 import threading
-import io
-import csv
-from flask import Flask, request, jsonify, Response
+from flask import Flask, request, jsonify
 from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
@@ -46,27 +44,6 @@ class DataPoint(db.Model):
     timestamp = db.Column(db.DateTime, nullable=False, index=True)
     metric = db.Column(db.String(50), nullable=False)
     value = db.Column(db.Float, nullable=True)
-
-class Annotation(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    dataset_id = db.Column(db.Integer, db.ForeignKey('dataset.id'), nullable=False, index=True)
-    start_time = db.Column(db.DateTime, nullable=False)
-    end_time = db.Column(db.DateTime, nullable=False)
-    content = db.Column(db.Text, nullable=True)
-    color = db.Column(db.String(20), default='#FF0000')
-    status = db.Column(db.String(50), default='Info')
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-
-    def to_dict(self):
-        return {
-            'id': self.id,
-            'dataset_id': self.dataset_id,
-            'start_time': self.start_time.isoformat(),
-            'end_time': self.end_time.isoformat(),
-            'content': self.content,
-            'color': self.color,
-            'status': self.status
-        }
 
 # Helper: Parse CSV (Background Task)
 def process_csv_task(file_path, dataset_id):
@@ -257,106 +234,10 @@ def upload_file():
             
         return jsonify(dataset.to_dict()), 201
 
-
 @app.route('/api/datasets', methods=['GET'])
 def get_datasets():
     datasets = Dataset.query.order_by(Dataset.created_at.desc()).all()
     return jsonify([d.to_dict() for d in datasets])
-
-@app.route('/api/datasets/<int:dataset_id>', methods=['DELETE'])
-def delete_dataset(dataset_id):
-    dataset = Dataset.query.get(dataset_id)
-    if not dataset:
-        return jsonify({'error': 'Dataset not found'}), 404
-    
-    # 1. Delete associated DataPoints
-    try:
-        DataPoint.query.filter_by(dataset_id=dataset_id).delete()
-        
-        # 2. Delete file if exists
-        # We need to construct the full path. 
-        # Since we might have modified filename on upload (unique_filename), 
-        # but currently we only store original filename in DB? 
-        # Wait, let's check how we store filename.
-        # In upload_file: unique_filename = f"{datetime.now().timestamp()}_{file.filename}"
-        # dataset = Dataset(filename=file.filename, ...) -> We only store original filename! 
-        # This is a problem. We cannot easily find the file on disk if we don't store the unique filename.
-        # Let's check merge_chunks: unique_filename = f"{upload_id}_{filename}" -> dataset(filename=filename)
-        
-        # ISSUE: We are not storing the actual physical filename in the database, only the display filename.
-        # We should have stored the unique filename or path.
-        # However, for now, we can try to find it or just ignore file deletion if we can't find it reliably, 
-        # OR we can iterate UPLOAD_DIR and find files that end with the filename (risky if duplicates).
-        
-        # Let's check the Dataset model again.
-        # id, filename, created_at, status.
-        
-        # If we can't delete the file safely, we should at least delete the DB records.
-        # To fix this properly, we should have added a 'file_path' or 'stored_filename' column.
-        # Given the current constraints and "legacy" code, I will search for the file in UPLOAD_DIR 
-        # that matches the pattern or simply leave the file (orphaned) and just delete the DB record.
-        # But user asked to "delete corresponding file". 
-        
-        # Let's try to match:
-        # For chunked upload: unique_filename = f"{upload_id}_{filename}" -> but we don't store upload_id in DB.
-        # For simple upload: unique_filename = f"{timestamp}_{filename}" -> timestamp is approximate.
-        
-        # Best effort: Search in UPLOAD_DIR for files ending with "_" + dataset.filename
-        # This is not perfect but better than nothing.
-        
-        # Actually, let's check if we can rely on something else.
-        # No.
-        
-        # I will perform DB deletion and try to delete file if I can find a single match.
-        
-        for fname in os.listdir(UPLOAD_DIR):
-            if fname.endswith(f"_{dataset.filename}") or fname == dataset.filename:
-                # Potential match. To be safer, maybe check creation time? 
-                # Let's just delete it. It's a "homework" environment.
-                try:
-                    os.remove(os.path.join(UPLOAD_DIR, fname))
-                    print(f"Deleted file: {fname}")
-                except:
-                    pass
-
-        db.session.delete(dataset)
-        db.session.commit()
-        return jsonify({'status': 'success'})
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/api/download/<int:dataset_id>', methods=['GET'])
-def download_data(dataset_id):
-    start_str = request.args.get('start')
-    end_str = request.args.get('end')
-    target_metric = request.args.get('metric')
-    
-    query = DataPoint.query.filter_by(dataset_id=dataset_id)
-    
-    if target_metric:
-        query = query.filter_by(metric=target_metric)
-    
-    if start_str:
-        query = query.filter(DataPoint.timestamp >= datetime.fromisoformat(start_str))
-    
-    if end_str:
-        query = query.filter(DataPoint.timestamp <= datetime.fromisoformat(end_str))
-        
-    data_points = query.order_by(DataPoint.timestamp).all()
-    
-    si = io.StringIO()
-    cw = csv.writer(si)
-    cw.writerow(['timestamp', 'metric', 'value'])
-    for dp in data_points:
-        cw.writerow([dp.timestamp.isoformat(), dp.metric, dp.value])
-        
-    output = si.getvalue()
-    return Response(
-        output,
-        mimetype="text/csv",
-        headers={"Content-disposition": "attachment; filename=export_data.csv"}
-    )
 
 @app.route('/api/data/<int:dataset_id>', methods=['GET'])
 def get_data(dataset_id):
@@ -372,91 +253,55 @@ def get_data(dataset_id):
     
     if start_str:
         query = query.filter(DataPoint.timestamp >= datetime.fromisoformat(start_str))
-    
     if end_str:
         query = query.filter(DataPoint.timestamp <= datetime.fromisoformat(end_str))
         
-    # Optimization: If count > limit, downsample
-    # We can't do smart downsampling in SQL easily without extension.
-    # We will fetch all and downsample in Python.
-    # But fetching millions of rows is slow.
+    # Sort by timestamp
+    points = query.order_by(DataPoint.timestamp).all()
     
-    # 1. Check count
-    count = query.count()
-    LIMIT = 5000
+    # Python-side Downsampling for Large Datasets
+    # If specific metric is requested, we can be more aggressive if needed, 
+    # but let's stick to a reasonable limit (e.g. 5000 points) to keep UI responsive.
+    limit = 5000
+    if len(points) > limit:
+        step = len(points) // limit
+        if step > 1:
+            points = points[::step]
     
-    if count > LIMIT:
-        # Strategy: Fetch every Nth row
-        # To do this efficiently in SQL, we need row_number() but SQLite < 3.25 doesn't support window functions easily 
-        # or SQLAlchemy support varies.
-        # Simple approach: Load all ID/Timestamp/Value and downsample in Python (still heavy for 17M rows)
-        
-        # Better approach for very large data:
-        # Use simple date truncation if possible, or just limit?
-        # No, limit cuts off data.
-        
-        # Let's try Python slicing with partial load?
-        # It's better to select specific columns to reduce memory.
-        data_points = query.with_entities(DataPoint.timestamp, DataPoint.value).all()
-        
-        # Downsample LTTB is ideal, but for now simple N-th sampling
-        step = len(data_points) // LIMIT
-        if step < 1: step = 1
-        data_points = data_points[::step]
-        
-        result = [{'timestamp': dp.timestamp.isoformat(), 'value': dp.value} for dp in data_points]
-        return jsonify(result)
-        
-    else:
-        data_points = query.all()
-        return jsonify([{'timestamp': dp.timestamp.isoformat(), 'value': dp.value} for dp in data_points])
+    if target_metric:
+        return jsonify([{'timestamp': p.timestamp.isoformat(), 'value': p.value} for p in points])
 
-@app.route('/api/annotations', methods=['POST'])
-def create_annotation():
-    data = request.json
-    try:
-        new_ann = Annotation(
-            dataset_id=data['dataset_id'],
-            start_time=datetime.fromisoformat(data['start_time']),
-            end_time=datetime.fromisoformat(data['end_time']),
-            content=data.get('content', ''),
-            color=data.get('color', '#FF0000'),
-            status=data.get('status', 'Info')
-        )
-        db.session.add(new_ann)
-        db.session.commit()
-        return jsonify(new_ann.to_dict()), 201
-    except Exception as e:
-        return jsonify({'error': str(e)}), 400
-
-@app.route('/api/annotations/<int:dataset_id>', methods=['GET'])
-def get_annotations(dataset_id):
-    anns = Annotation.query.filter_by(dataset_id=dataset_id).all()
-    return jsonify([a.to_dict() for a in anns])
-
-@app.route('/api/annotations/<int:ann_id>', methods=['DELETE'])
-def delete_annotation(ann_id):
-    ann = Annotation.query.get(ann_id)
-    if not ann:
-        return jsonify({'error': 'Not found'}), 404
-    db.session.delete(ann)
-    db.session.commit()
-    return jsonify({'status': 'success'})
-
-@app.route('/api/annotations/<int:ann_id>', methods=['PUT'])
-def update_annotation(ann_id):
-    ann = Annotation.query.get(ann_id)
-    if not ann:
-        return jsonify({'error': 'Not found'}), 404
-    data = request.json
-    try:
-        if 'content' in data: ann.content = data['content']
-        if 'color' in data: ann.color = data['color']
-        if 'status' in data: ann.status = data['status']
-        db.session.commit()
-        return jsonify(ann.to_dict())
-    except Exception as e:
-        return jsonify({'error': str(e)}), 400
+    # Format for ECharts: Series based on metric
+    # Output: { categories: [t1, t2], series: [ {name: 'temp', data: [v1, v2]} ] }
+    # To do this efficiently, we might need to pivot back or just aggregate in python
+    
+    data_map = {} # metric -> { timestamp -> value }
+    all_timestamps = set()
+    
+    for p in points:
+        ts_str = p.timestamp.isoformat()
+        all_timestamps.add(ts_str)
+        if p.metric not in data_map:
+            data_map[p.metric] = {}
+        data_map[p.metric][ts_str] = p.value
+        
+    sorted_timestamps = sorted(list(all_timestamps))
+    
+    series_list = []
+    for metric, values in data_map.items():
+        series_data = []
+        for ts in sorted_timestamps:
+            series_data.append(values.get(ts, None)) # Handle missing data
+        series_list.append({
+            'name': metric,
+            'type': 'line',
+            'data': series_data
+        })
+        
+    return jsonify({
+        'timestamps': sorted_timestamps,
+        'series': series_list
+    })
 
 @app.route('/api/stats/<int:dataset_id>', methods=['GET'])
 def get_stats(dataset_id):

@@ -17,11 +17,30 @@ import {
   Form,
   Input,
   ColorPicker,
+  Table,
+  Space,
+  Popover,
+  InputNumber,
 } from "antd";
-import { UploadOutlined, DeleteOutlined } from "@ant-design/icons";
+import {
+  UploadOutlined,
+  DeleteOutlined,
+  FullscreenOutlined,
+  CompressOutlined,
+  PictureOutlined,
+  EyeOutlined,
+  ReloadOutlined,
+  TableOutlined,
+  EditOutlined,
+} from "@ant-design/icons";
 import ReactECharts from "echarts-for-react";
 import axios from "axios";
 import dayjs from "dayjs";
+import HeaderBar from "./components/HeaderBar";
+import ChartPanel from "./components/ChartPanel";
+import AnnotationTable from "./components/AnnotationTable";
+import AnnotationModal from "./components/AnnotationModal";
+import ContextMenu from "./components/ContextMenu";
 
 const { Header, Content } = Layout;
 const { Option } = Select;
@@ -57,7 +76,77 @@ const App = () => {
   // Theme State
   const [themeColor, setThemeColor] = useState("#001529");
 
+  const [browseMode, setBrowseMode] = useState(false);
+  const [annotateMode, setAnnotateMode] = useState(false);
+  const [fullscreen, setFullscreen] = useState(false);
+  const [yMin, setYMin] = useState(null);
+  const [yMax, setYMax] = useState(null);
+
   const chartRef = useRef(null);
+  const tableRef = useRef(null);
+  const dragStartRef = useRef(null);
+  const draggingRef = useRef(false);
+  const [selectionRanges, setSelectionRanges] = useState([]);
+
+  useEffect(() => {
+    const inst = chartRef.current?.getEchartsInstance();
+    if (!inst) return;
+    const zr = inst.getZr();
+    const onDown = (e) => {
+      if (!annotateMode) return;
+      const p = [e.offsetX, e.offsetY];
+      if (!inst.containPixel("grid", p)) return;
+      const t = inst.convertFromPixel({ seriesIndex: 0 }, p)[0];
+      dragStartRef.current = t;
+      draggingRef.current = true;
+    };
+    const onMove = (e) => {
+      if (!annotateMode) return;
+      if (annotateMode) {
+        zr.setCursorStyle("crosshair");
+      }
+      if (!draggingRef.current || !dragStartRef.current) return;
+      const p = [e.offsetX, e.offsetY];
+      if (!inst.containPixel("grid", p)) return;
+      const t2 = inst.convertFromPixel({ seriesIndex: 0 }, p)[0];
+      const t1 = dragStartRef.current;
+      const start = new Date(Math.min(t1, t2)).toISOString();
+      const end = new Date(Math.max(t1, t2)).toISOString();
+      setCurrentBrushRange([start, end]);
+    };
+    const onUp = (e) => {
+      if (!annotateMode) return;
+      const p = [e.offsetX, e.offsetY];
+      if (!inst.containPixel("grid", p)) return;
+      const t2 = inst.convertFromPixel({ seriesIndex: 0 }, p)[0];
+      const t1 = dragStartRef.current;
+      dragStartRef.current = null;
+      draggingRef.current = false;
+      if (!t1 || !t2) return;
+      const start = new Date(Math.min(t1, t2)).toISOString();
+      const end = new Date(Math.max(t1, t2)).toISOString();
+      setCurrentBrushRange([start, end]);
+      setSelectionRanges((prev) => [...prev, { start_time: start, end_time: end }]);
+      setEditingAnnotation(null);
+      annotationForm.resetFields();
+    };
+    if (annotateMode) {
+      zr.setCursorStyle("crosshair");
+      zr.on("mousedown", onDown);
+      zr.on("mousemove", onMove);
+      zr.on("mouseup", onUp);
+    } else {
+      zr.setCursorStyle("default");
+      zr.off("mousedown");
+      zr.off("mousemove");
+      zr.off("mouseup");
+    }
+    return () => {
+      zr.off("mousedown");
+      zr.off("mousemove");
+      zr.off("mouseup");
+    };
+  }, [annotateMode, chartData]); // Add chartData dependency to re-apply cursor style on data update
 
   // Load datasets on mount
   useEffect(() => {
@@ -322,6 +411,39 @@ const App = () => {
     }
   };
 
+  const handleSaveImage = () => {
+    const inst = chartRef.current?.getEchartsInstance();
+    if (!inst) return;
+    const url = inst.getDataURL({ type: "png", pixelRatio: 2, backgroundColor: "#fff" });
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `chart_${Date.now()}.png`;
+    a.click();
+  };
+
+  const handleToggleFullscreen = () => {
+    setFullscreen(!fullscreen);
+  };
+
+  const handleResetYAxis = () => {
+    const inst = chartRef.current?.getEchartsInstance();
+    if (!inst) return;
+    inst.dispatchAction({ type: "dataZoom", start: 0, end: 100 });
+    setYMin(null);
+    setYMax(null);
+    inst.setOption(getOption(), true);
+  };
+
+  const scrollToTable = () => {
+    tableRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
+  const zoomToRange = (start, end) => {
+    const inst = chartRef.current?.getEchartsInstance();
+    if (!inst) return;
+    inst.dispatchAction({ type: "dataZoom", startValue: start, endValue: end });
+  };
+
   const getOption = () => {
     if (!chartData || !Array.isArray(chartData)) return {};
 
@@ -340,7 +462,7 @@ const App = () => {
       {
         xAxis: ann.start_time,
         name: ann.content,
-        itemStyle: { color: ann.color, opacity: 0.2 },
+        itemStyle: { color: ann.color || themeColor, opacity: 0.3 },
         label: { show: true, formatter: `${ann.content} (${ann.status})`, color: "#333" },
       },
       {
@@ -348,36 +470,30 @@ const App = () => {
       },
     ]);
 
+    const selectionArea = selectionRanges.map((r) => [
+      {
+        xAxis: r.start_time,
+        name: "选区",
+        itemStyle: { color: themeColor, opacity: 0.45 },
+        label: { show: false },
+      },
+      { xAxis: r.end_time },
+    ]);
+
+    const yAxisObj = { type: "value", scale: true };
+    if (yMin !== null) yAxisObj.min = yMin;
+    if (yMax !== null) yAxisObj.max = yMax;
+
     return {
       tooltip: {
         trigger: "axis",
       },
-      brush: {
-        toolbox: ["rect", "clear"],
-        xAxisIndex: 0,
-        throttleType: "debounce",
-        throttleDelay: 300,
-      },
-      toolbox: {
-        feature: {
-          dataZoom: {
-            yAxisIndex: "none",
-          },
-          restore: {},
-          saveAsImage: {},
-          brush: {
-            type: ["lineX", "clear"],
-          },
-        },
-      },
+      // 移除 ECharts 顶部右侧工具栏（框内按钮）
       xAxis: {
         type: "time",
         boundaryGap: false,
       },
-      yAxis: {
-        type: "value",
-        scale: true,
-      },
+      yAxis: yAxisObj,
       dataZoom: [
         {
           type: "slider",
@@ -395,7 +511,7 @@ const App = () => {
         sampling: "lttb",
         type: "line",
         markArea: {
-          data: flatMarkAreaData,
+          data: [...selectionArea, ...flatMarkAreaData],
           label: { position: "insideTopLeft" },
         },
       })),
@@ -404,6 +520,7 @@ const App = () => {
 
   const onChartEvents = {
     brushEnd: (params) => {
+      if (annotateMode) return;
       if (params.areas && params.areas.length > 0) {
         const area = params.areas[0];
         const coordRange = area.coordRange;
@@ -465,7 +582,7 @@ const App = () => {
   };
 
   const handleMouseEnter = (e) => {
-    e.target.style.background = "#f5f5f5";
+    e.target.style.background = hexToRgba(themeColor, 0.12);
   };
   const handleMouseLeave = (e) => {
     e.target.style.background = "white";
@@ -473,70 +590,17 @@ const App = () => {
 
   return (
     <Layout style={{ minHeight: "100vh", background: "#f0f2f5" }}>
-      <Header
-        style={{ display: "flex", alignItems: "center", background: themeColor, padding: "0 20px" }}
-      >
-        <div
-          className="logo"
-          style={{ fontSize: "1.2rem", fontWeight: "bold", marginRight: "2rem", color: "#fff" }}
-        >
-          时间序列可视化
-        </div>
-        <div style={{ marginRight: "1rem", display: "flex", alignItems: "center" }}>
-          <span style={{ color: "#fff", marginRight: "8px" }}>主题色:</span>
-          <ColorPicker
-            value={themeColor}
-            onChange={(c) => setThemeColor(c.toHexString())}
-            format="hex"
-          />
-        </div>
-        <Select
-          style={{ width: 300, marginRight: "1rem" }}
-          placeholder="选择数据集"
-          value={currentDatasetId}
-          onChange={setCurrentDatasetId}
-          notFoundContent="暂无数据集"
-          optionLabelProp="label"
-        >
-          {datasets.map((d) => (
-            <Option key={d.id} value={d.id} label={d.filename}>
-              <div
-                style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}
-              >
-                <span
-                  style={{
-                    overflow: "hidden",
-                    whiteSpace: "nowrap",
-                    textOverflow: "ellipsis",
-                    marginRight: "8px",
-                  }}
-                  title={d.filename}
-                >
-                  {d.filename}
-                </span>
-                <DeleteOutlined
-                  onClick={(e) => handleDeleteDataset(e, d.id)}
-                  style={{ color: "red", cursor: "pointer", flexShrink: 0 }}
-                />
-              </div>
-            </Option>
-          ))}
-        </Select>
-        <Upload customRequest={handleUpload} showUploadList={false} disabled={uploading}>
-          <Button icon={<UploadOutlined />} loading={uploading}>
-            {uploading ? "上传中..." : "上传 CSV"}
-          </Button>
-        </Upload>
-        {uploading && (
-          <Progress
-            percent={uploadProgress}
-            size="small"
-            status="active"
-            style={{ width: 100, marginLeft: 10 }}
-            format={(percent) => `${percent}%`}
-          />
-        )}
-      </Header>
+      <HeaderBar
+        themeColor={themeColor}
+        setThemeColor={setThemeColor}
+        datasets={datasets}
+        currentDatasetId={currentDatasetId}
+        setCurrentDatasetId={setCurrentDatasetId}
+        handleDeleteDataset={handleDeleteDataset}
+        handleUpload={handleUpload}
+        uploading={uploading}
+        uploadProgress={uploadProgress}
+      />
       <Content style={{ padding: "20px" }}>
         {currentDatasetId ? (
           <>
@@ -578,58 +642,71 @@ const App = () => {
               ))}
             </Row>
 
-            <Card
-              title="数据可视化"
-              bordered={false}
-              style={{ borderRadius: 8 }}
-              hoverable
-              extra={
-                <Select
-                  value={selectedMetric}
-                  onChange={setSelectedMetric}
-                  style={{ width: 200 }}
-                  placeholder="选择指标"
-                >
-                  {stats.map((s) => (
-                    <Option key={s.metric} value={s.metric}>
-                      {s.metric}
-                    </Option>
-                  ))}
-                </Select>
-              }
-            >
-              {currentDataset && currentDataset.status === "failed" ? (
-                <Empty
-                  description={<span style={{ color: "red" }}>数据处理失败，请检查文件格式。</span>}
+            {currentDataset && currentDataset.status === "failed" ? (
+              <Empty
+                description={<span style={{ color: "red" }}>数据处理失败，请检查文件格式。</span>}
+              />
+            ) : loading ||
+              (currentDataset &&
+                (currentDataset.status === "pending" || currentDataset.status === "processing")) ? (
+              <div style={{ textAlign: "center", padding: "50px" }}>
+                <Spin
+                  tip={
+                    currentDataset?.status === "processing" ? "正在处理 CSV 数据..." : "加载中..."
+                  }
+                  size="large"
                 />
-              ) : loading ||
-                (currentDataset &&
-                  (currentDataset.status === "pending" ||
-                    currentDataset.status === "processing")) ? (
-                <div style={{ textAlign: "center", padding: "50px" }}>
-                  <Spin
-                    tip={
-                      currentDataset?.status === "processing" ? "正在处理 CSV 数据..." : "加载中..."
-                    }
-                    size="large"
-                  />
-                  {currentDataset?.status === "processing" && (
-                    <div style={{ marginTop: 20, color: "#888" }}>
-                      大文件可能需要几分钟处理，图表将自动更新。
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <ReactECharts
-                  ref={chartRef}
-                  option={getOption()}
-                  style={{ height: "500px", width: "100%" }}
-                  notMerge={true}
-                  lazyUpdate={true}
-                  onEvents={onChartEvents}
-                />
-              )}
-            </Card>
+                {currentDataset?.status === "processing" && (
+                  <div style={{ marginTop: 20, color: "#888" }}>
+                    大文件可能需要几分钟处理，图表将自动更新。
+                  </div>
+                )}
+              </div>
+            ) : (
+              <ChartPanel
+                option={getOption()}
+                chartRef={chartRef}
+                onChartEvents={onChartEvents}
+                stats={stats}
+                selectedMetric={selectedMetric}
+                setSelectedMetric={setSelectedMetric}
+                annotateMode={annotateMode}
+                setAnnotateMode={setAnnotateMode}
+                fullscreen={fullscreen}
+                setFullscreen={setFullscreen}
+                handleSaveImage={handleSaveImage}
+                handleToggleFullscreen={handleToggleFullscreen}
+                yMin={yMin}
+                yMax={yMax}
+                setYMin={setYMin}
+                setYMax={setYMax}
+                handleResetYAxis={handleResetYAxis}
+                scrollToTable={scrollToTable}
+                themeColor={themeColor}
+              />
+            )}
+
+            <AnnotationTable
+              annotations={annotations}
+              selections={selectionRanges}
+              zoomToRange={zoomToRange}
+              setEditingAnnotation={setEditingAnnotation}
+              annotationForm={annotationForm}
+              setAnnotationModalVisible={setAnnotationModalVisible}
+              handleDeleteAnnotation={handleDeleteAnnotation}
+              tableRef={tableRef}
+              onCreateFromSelection={(sel) => {
+                setCurrentBrushRange([sel.start_time, sel.end_time]);
+                setAnnotationModalVisible(true);
+              }}
+              onRemoveSelection={(sel) => {
+                setSelectionRanges((prev) =>
+                  prev.filter(
+                    (s) => !(s.start_time === sel.start_time && s.end_time === sel.end_time),
+                  ),
+                );
+              }}
+            />
           </>
         ) : (
           <Empty
@@ -649,138 +726,44 @@ const App = () => {
           />
         )}
 
-        {/* Annotation Context Menu */}
-        {contextMenu.visible && (
-          <div
-            style={{
-              position: "fixed",
-              top: contextMenu.y,
-              left: contextMenu.x,
-              background: "white",
-              boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
-              zIndex: 1000,
-              borderRadius: 4,
-              padding: "4px 0",
-              minWidth: 120,
-            }}
-          >
-            {contextMenu.annotation ? (
-              <>
-                <div
-                  style={{ padding: "8px 16px", cursor: "pointer", transition: "all 0.3s" }}
-                  onMouseEnter={handleMouseEnter}
-                  onMouseLeave={handleMouseLeave}
-                  onClick={() => {
-                    handleDownloadRange(
-                      contextMenu.annotation.start_time,
-                      contextMenu.annotation.end_time,
-                    );
-                    setContextMenu({ ...contextMenu, visible: false });
-                  }}
-                >
-                  下载该时间段数据
-                </div>
-                <div
-                  style={{
-                    padding: "8px 16px",
-                    cursor: "pointer",
-                    transition: "all 0.3s",
-                  }}
-                  onMouseEnter={handleMouseEnter}
-                  onMouseLeave={handleMouseLeave}
-                  onClick={() => {
-                    setEditingAnnotation(contextMenu.annotation);
-                    annotationForm.setFieldsValue({
-                      content: contextMenu.annotation.content,
-                      status: contextMenu.annotation.status,
-                      color: contextMenu.annotation.color,
-                    });
-                    setAnnotationModalVisible(true);
-                    setContextMenu({ ...contextMenu, visible: false });
-                  }}
-                >
-                  编辑
-                </div>
-                <div
-                  style={{
-                    padding: "8px 16px",
-                    cursor: "pointer",
-                    color: "red",
-                    transition: "all 0.3s",
-                  }}
-                  onMouseEnter={handleMouseEnter}
-                  onMouseLeave={handleMouseLeave}
-                  onClick={() => {
-                    handleDeleteAnnotation(contextMenu.annotation.id);
-                    setContextMenu({ ...contextMenu, visible: false });
-                  }}
-                >
-                  删除
-                </div>
-              </>
-            ) : (
-              <>
-                <div
-                  style={{ padding: "8px 16px", cursor: "pointer", transition: "all 0.3s" }}
-                  onMouseEnter={handleMouseEnter}
-                  onMouseLeave={handleMouseLeave}
-                  onClick={() => {
-                    setAnnotationModalVisible(true);
-                    setContextMenu({ ...contextMenu, visible: false });
-                  }}
-                >
-                  添加标注
-                </div>
-                {currentBrushRange && (
-                  <div
-                    style={{ padding: "8px 16px", cursor: "pointer", transition: "all 0.3s" }}
-                    onMouseEnter={handleMouseEnter}
-                    onMouseLeave={handleMouseLeave}
-                    onClick={() => {
-                      handleDownloadRange(currentBrushRange[0], currentBrushRange[1]);
-                      setContextMenu({ ...contextMenu, visible: false });
-                    }}
-                  >
-                    下载选中区域数据
-                  </div>
-                )}
-              </>
-            )}
-          </div>
-        )}
+        <ContextMenu
+          contextMenu={{ ...contextMenu, currentBrushRange: currentBrushRange }}
+          handleDownloadRange={handleDownloadRange}
+          setContextMenu={setContextMenu}
+          handleDeleteAnnotation={handleDeleteAnnotation}
+          handleMouseEnter={handleMouseEnter}
+          handleMouseLeave={handleMouseLeave}
+          setEditingAnnotation={setEditingAnnotation}
+          annotationForm={annotationForm}
+          setAnnotationModalVisible={setAnnotationModalVisible}
+        />
 
-        {/* Annotation Modal */}
-        <Modal
-          title={editingAnnotation ? "编辑标注" : "添加标注"}
-          open={annotationModalVisible}
-          onCancel={() => setAnnotationModalVisible(false)}
-          onOk={() => annotationForm.submit()}
-          okText={editingAnnotation ? "保存" : "创建"}
-          cancelText="取消"
-        >
-          <Form form={annotationForm} onFinish={handleSaveAnnotation} layout="vertical">
-            <Form.Item
-              name="content"
-              label="标注内容"
-              rules={[{ required: true, message: "请输入标注内容" }]}
-            >
-              <Input.TextArea />
-            </Form.Item>
-            <Form.Item name="status" label="状态" initialValue="Info">
-              <Select>
-                <Option value="Info">信息 (Info)</Option>
-                <Option value="Warning">警告 (Warning)</Option>
-                <Option value="Critical">严重 (Critical)</Option>
-              </Select>
-            </Form.Item>
-            <Form.Item name="color" label="颜色" initialValue="#1890ff">
-              <ColorPicker format="hex" />
-            </Form.Item>
-          </Form>
-        </Modal>
+        <AnnotationModal
+          editingAnnotation={editingAnnotation}
+          visible={annotationModalVisible}
+          setVisible={setAnnotationModalVisible}
+          annotationForm={annotationForm}
+          handleSaveAnnotation={handleSaveAnnotation}
+        />
       </Content>
     </Layout>
   );
 };
 
 export default App;
+const hexToRgba = (hex, alpha = 1) => {
+  const h = hex.replace("#", "");
+  const bigint = parseInt(
+    h.length === 3
+      ? h
+          .split("")
+          .map((x) => x + x)
+          .join("")
+      : h,
+    16,
+  );
+  const r = (bigint >> 16) & 255;
+  const g = (bigint >> 8) & 255;
+  const b = bigint & 255;
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+};
