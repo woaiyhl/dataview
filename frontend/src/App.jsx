@@ -23,6 +23,7 @@ import {
   InputNumber,
   Skeleton,
 } from "antd";
+import "./styles/index.css";
 import {
   UploadOutlined,
   DeleteOutlined,
