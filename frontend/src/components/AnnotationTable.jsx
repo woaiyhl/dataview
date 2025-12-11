@@ -52,9 +52,6 @@ export default function AnnotationTable({
             title: "操作",
             render: (_, r) => (
               <Space>
-                <Button size="small" onClick={() => zoomToRange(r.start_time, r.end_time)}>
-                  定位
-                </Button>
                 {r._isSelection ? (
                   <>
                     <Button size="small" type="primary" onClick={() => onCreateFromSelection(r)}>
@@ -68,7 +65,7 @@ export default function AnnotationTable({
                   <>
                     <Button
                       size="small"
-                      icon={<EditOutlined />}
+                      type="primary"
                       onClick={() => {
                         setEditingAnnotation(r);
                         annotationForm.setFieldsValue({

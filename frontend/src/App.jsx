@@ -375,7 +375,9 @@ const App = () => {
       setCurrentBrushRange(null);
       fetchAnnotations(currentDatasetId);
     } catch (error) {
-      message.error("保存标注失败");
+      console.error("Save annotation failed:", error);
+      const errorMsg = error.response?.data?.message || error.message || "保存标注失败";
+      message.error(`保存标注失败: ${errorMsg}`);
     }
   };
 
