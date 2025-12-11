@@ -64,6 +64,7 @@ export default function ChartPanel({
     <Card
       title="数据可视化"
       bordered={false}
+      bodyStyle={{ padding: "10px 24px 0 24px" }}
       style={{
         borderRadius: 8,
         position: fullscreen ? "fixed" : "static",

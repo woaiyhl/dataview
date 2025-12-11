@@ -21,6 +21,7 @@ import {
   Space,
   Popover,
   InputNumber,
+  Skeleton,
 } from "antd";
 import {
   UploadOutlined,
@@ -54,6 +55,7 @@ const App = () => {
   const [chartData, setChartData] = useState(null);
   const [stats, setStats] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [isInitLoading, setIsInitLoading] = useState(true);
   const [dateRange, setDateRange] = useState([]);
 
   // New State for Chart Display
@@ -242,6 +244,8 @@ const App = () => {
       }
     } catch (error) {
       // Quiet fail if no backend or empty
+    } finally {
+      setIsInitLoading(false);
     }
   };
 
@@ -480,8 +484,20 @@ const App = () => {
       { xAxis: r.end_time },
     ]);
 
-    const yAxisObj = { type: "value", scale: true };
-    if (yMin !== null) yAxisObj.min = yMin;
+    const yAxisObj = {
+      type: "value",
+      scale: true,
+      min: (value) => {
+        if (yMin !== null) return yMin;
+        // 智能处理微小负值：如果最小值很小（绝对值 < 范围的 5%）且是负数，
+        // 强制使用 dataMin，避免 ECharts 为了整齐刻度扩展出巨大的负空间（如 -20）
+        const range = value.max - value.min;
+        if (range > 0 && value.min < 0 && Math.abs(value.min) / range < 0.05) {
+          return value.min;
+        }
+        return null; // 默认行为
+      },
+    };
     if (yMax !== null) yAxisObj.max = yMax;
 
     return {
@@ -491,6 +507,12 @@ const App = () => {
         extraCssText: "pointer-events: none;",
       },
       // 移除 ECharts 顶部右侧工具栏（框内按钮）
+      grid: {
+        top: 30,
+        left: 50,
+        right: 20,
+        bottom: 80,
+      },
       xAxis: {
         type: "time",
         boundaryGap: false,
@@ -593,6 +615,53 @@ const App = () => {
     e.target.style.background = "white";
   };
 
+  const ChartAreaSkeleton = () => (
+    <div
+      style={{
+        height: 450,
+        background: "#fafafa",
+        borderRadius: 8,
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        border: "1px dashed #e0e0e0",
+        marginBottom: 20,
+      }}
+    >
+      <Spin size="large" />
+      <div style={{ marginTop: 24, textAlign: "center", color: "#666" }}>
+        <div style={{ fontSize: 16, fontWeight: 500, marginBottom: 8 }}>
+          {currentDataset?.status === "processing" ? "正在处理数据..." : "正在加载图表资源..."}
+        </div>
+        {currentDataset?.status === "processing" && (
+          <div style={{ fontSize: 13, color: "#999" }}>
+            大文件可能需要几分钟进行预处理和降采样，请耐心等待
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
+  const FullPageSkeleton = () => (
+    <Card style={{ borderRadius: 8, minHeight: 600 }}>
+      {/* 模拟头部日期选择栏 */}
+      <Row gutter={16} style={{ marginBottom: 20 }}>
+        <Col span={12}>
+          <Skeleton.Input active size="large" block style={{ borderRadius: 6 }} />
+        </Col>
+        <Col span={12} style={{ textAlign: "right" }}>
+          <Skeleton.Input active size="small" style={{ width: 100, borderRadius: 6 }} />
+        </Col>
+      </Row>
+
+      <ChartAreaSkeleton />
+
+      {/* 模拟底部表格 */}
+      <Skeleton active paragraph={{ rows: 3 }} />
+    </Card>
+  );
+
   return (
     <Layout style={{ minHeight: "100vh", background: "#f0f2f5" }}>
       <HeaderBar
@@ -607,7 +676,9 @@ const App = () => {
         uploadProgress={uploadProgress}
       />
       <Content style={{ padding: "20px" }}>
-        {currentDatasetId ? (
+        {isInitLoading ? (
+          <FullPageSkeleton />
+        ) : currentDatasetId ? (
           <>
             <Card style={{ marginBottom: "20px", borderRadius: 8 }} hoverable>
               <Row gutter={16}>
@@ -625,28 +696,6 @@ const App = () => {
               </Row>
             </Card>
 
-            <Row gutter={16} style={{ marginBottom: "20px" }}>
-              {stats.map((s, idx) => (
-                <Col span={6} key={idx} style={{ marginBottom: 10 }}>
-                  <Card size="small" title={s.metric} hoverable style={{ borderRadius: 8 }}>
-                    <Statistic title="平均值" value={s.avg} precision={2} />
-                    <div
-                      style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        marginTop: 10,
-                        fontSize: "0.8em",
-                        color: "#666",
-                      }}
-                    >
-                      <span>最小值: {s.min}</span>
-                      <span>最大值: {s.max}</span>
-                    </div>
-                  </Card>
-                </Col>
-              ))}
-            </Row>
-
             {currentDataset && currentDataset.status === "failed" ? (
               <Empty
                 description={<span style={{ color: "red" }}>数据处理失败，请检查文件格式。</span>}
@@ -654,19 +703,7 @@ const App = () => {
             ) : loading ||
               (currentDataset &&
                 (currentDataset.status === "pending" || currentDataset.status === "processing")) ? (
-              <div style={{ textAlign: "center", padding: "50px" }}>
-                <Spin
-                  tip={
-                    currentDataset?.status === "processing" ? "正在处理 CSV 数据..." : "加载中..."
-                  }
-                  size="large"
-                />
-                {currentDataset?.status === "processing" && (
-                  <div style={{ marginTop: 20, color: "#888" }}>
-                    大文件可能需要几分钟处理，图表将自动更新。
-                  </div>
-                )}
-              </div>
+              <ChartAreaSkeleton />
             ) : (
               <ChartPanel
                 option={getOption()}
@@ -712,23 +749,96 @@ const App = () => {
                 );
               }}
             />
+
+            <Row gutter={16} style={{ marginBottom: "20px", marginTop: "20px" }}>
+              {stats.map((s, idx) => (
+                <Col span={6} key={idx} style={{ marginBottom: 10 }}>
+                  <Card size="small" title={s.metric} hoverable style={{ borderRadius: 8 }}>
+                    <Statistic title="平均值" value={s.avg} precision={2} />
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        marginTop: 10,
+                        fontSize: "0.8em",
+                        color: "#666",
+                      }}
+                    >
+                      <span>最小值: {s.min}</span>
+                      <span>最大值: {s.max}</span>
+                    </div>
+                  </Card>
+                </Col>
+              ))}
+            </Row>
           </>
         ) : (
-          <Empty
-            description={
-              <span>
-                请{" "}
+          <div
+            style={{
+              marginTop: "40px",
+              padding: "80px 20px",
+              textAlign: "center",
+              background: "#fff",
+              borderRadius: 16,
+              boxShadow: "0 4px 12px rgba(0,0,0,0.03)",
+              border: "1px solid #f0f0f0",
+            }}
+          >
+            <Empty
+              image="https://gw.alipayobjects.com/zos/antfincdn/ZHrcdLPrvN/empty.svg"
+              imageStyle={{ height: 160, marginBottom: 20 }}
+              description={
+                <div style={{ color: "#666" }}>
+                  <h2
+                    style={{
+                      fontSize: 20,
+                      fontWeight: 600,
+                      color: "#333",
+                      marginBottom: 12,
+                    }}
+                  >
+                    暂无数据可视化
+                  </h2>
+                  <p style={{ fontSize: 14, color: "#999", maxWidth: 400, margin: "0 auto 24px" }}>
+                    请从顶部工具栏选择已有的数据集，或上传新的 CSV 文件以开始分析。
+                    支持时间序列数据的自动解析与交互式图表展示。
+                  </p>
+                </div>
+              }
+            >
+              <Space size="middle">
                 <Button
-                  type="link"
+                  type="primary"
+                  size="large"
+                  icon={<UploadOutlined />}
                   onClick={() => document.querySelector(".ant-upload input").click()}
+                  style={{
+                    height: 48,
+                    padding: "0 32px",
+                    borderRadius: 24,
+                    fontSize: 16,
+                    boxShadow: "0 4px 10px rgba(24, 144, 255, 0.3)",
+                  }}
                 >
-                  上传 CSV 文件
-                </Button>{" "}
-                以开始
-              </span>
-            }
-            style={{ marginTop: "100px" }}
-          />
+                  上传 CSV 数据
+                </Button>
+                {datasets.length > 0 && (
+                  <Button
+                    size="large"
+                    onClick={() => setCurrentDatasetId(datasets[0].id)}
+                    style={{
+                      height: 48,
+                      padding: "0 32px",
+                      borderRadius: 24,
+                      fontSize: 16,
+                    }}
+                  >
+                    查看最新数据
+                  </Button>
+                )}
+              </Space>
+            </Empty>
+          </div>
         )}
 
         <ContextMenu
