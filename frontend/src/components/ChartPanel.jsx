@@ -19,6 +19,8 @@ import {
   SettingOutlined,
   EyeOutlined,
   EditOutlined,
+  LineChartOutlined,
+  BarChartOutlined,
 } from "@ant-design/icons";
 import ReactECharts from "echarts-for-react";
 
@@ -44,6 +46,8 @@ export default function ChartPanel({
   handleResetYAxis,
   scrollToTable,
   themeColor,
+  chartType,
+  setChartType,
 }) {
   return (
     <Card
@@ -91,6 +95,17 @@ export default function ChartPanel({
           <Divider type="vertical" className="h-6 mx-2" />
 
           <Space size={2}>
+            <Segmented
+              options={[
+                { label: "折线图", value: "line", icon: <LineChartOutlined /> },
+                { label: "柱状图", value: "bar", icon: <BarChartOutlined /> },
+              ]}
+              size="small"
+              value={chartType}
+              onChange={setChartType}
+              className="bg-gray-100"
+            />
+
             <Tooltip title="Y轴设置">
               <Popover
                 title="设置Y轴范围"

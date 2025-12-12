@@ -86,6 +86,7 @@ const App = () => {
   const [fullscreen, setFullscreen] = useState(false);
   const [yMin, setYMin] = useState(null);
   const [yMax, setYMax] = useState(null);
+  const [chartType, setChartType] = useState("line");
 
   const chartRef = useRef(null);
   const tableRef = useRef(null);
@@ -279,9 +280,11 @@ const App = () => {
       const res = await axios.get(`/api/stats/${id}`);
       setStats(res.data);
 
-      // Initialize selectedMetric if not set
-      if (res.data.length > 0 && !selectedMetric) {
-        setSelectedMetric(res.data[0].metric);
+      if (res.data.length > 0) {
+        const metrics = res.data.map((s) => s.metric);
+        if (!selectedMetric || !metrics.includes(selectedMetric)) {
+          setSelectedMetric(res.data[0].metric);
+        }
       }
     } catch (error) {
       console.error(error);
@@ -461,7 +464,7 @@ const App = () => {
       visibleSeries.push({
         name: selectedMetric,
         data: chartData.map((d) => [d.timestamp, d.value]),
-        type: "line",
+        type: chartType,
       });
     }
 
@@ -535,10 +538,10 @@ const App = () => {
       ],
       series: visibleSeries.map((s) => ({
         ...s,
-        smooth: !isLargeData,
-        showSymbol: !isLargeData,
+        smooth: chartType === "line" && !isLargeData,
+        showSymbol: chartType === "line" && !isLargeData,
         sampling: "lttb",
-        type: "line",
+        type: chartType,
         markArea: {
           data: [...selectionArea, ...flatMarkAreaData],
           label: { position: "insideTopLeft" },
@@ -742,6 +745,8 @@ const App = () => {
                   handleResetYAxis={handleResetYAxis}
                   scrollToTable={scrollToTable}
                   themeColor={themeColor}
+                  chartType={chartType}
+                  setChartType={setChartType}
                 />
               )}
 
