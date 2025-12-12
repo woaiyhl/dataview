@@ -22,7 +22,9 @@ import {
   Popover,
   InputNumber,
   Skeleton,
+  ConfigProvider,
 } from "antd";
+import zhCN from "antd/locale/zh_CN";
 import "./styles/index.css";
 import {
   UploadOutlined,
@@ -666,205 +668,190 @@ const App = () => {
   );
 
   return (
-    <Layout style={{ minHeight: "100vh", background: "#f0f2f5" }}>
-      <HeaderBar
-        themeColor={themeColor}
-        setThemeColor={setThemeColor}
-        datasets={datasets}
-        currentDatasetId={currentDatasetId}
-        setCurrentDatasetId={setCurrentDatasetId}
-        handleDeleteDataset={handleDeleteDataset}
-        handleUpload={handleUpload}
-        uploading={uploading}
-        uploadProgress={uploadProgress}
-      />
-      <Content style={{ padding: "20px" }}>
-        {isInitLoading ? (
-          <FullPageSkeleton />
-        ) : currentDatasetId ? (
-          <>
-            <Card style={{ marginBottom: "20px", borderRadius: 8 }} hoverable>
-              <Row gutter={16}>
-                <Col span={12}>
-                  <RangePicker
-                    showTime
-                    onChange={(dates) => setDateRange(dates)}
-                    style={{ width: "100%" }}
-                    placeholder={["开始日期", "结束日期"]}
-                  />
-                </Col>
-                <Col span={12} style={{ textAlign: "right" }}>
-                  <span style={{ color: "#888" }}>数据集 ID: {currentDatasetId}</span>
-                </Col>
-              </Row>
-            </Card>
+    <ConfigProvider
+      locale={zhCN}
+      theme={{
+        token: {
+          colorPrimary: themeColor,
+          borderRadius: 8,
+        },
+      }}
+    >
+      <Layout className="min-h-screen bg-gray-50/50">
+        <HeaderBar
+          themeColor={themeColor}
+          setThemeColor={setThemeColor}
+          datasets={datasets}
+          currentDatasetId={currentDatasetId}
+          setCurrentDatasetId={setCurrentDatasetId}
+          handleDeleteDataset={handleDeleteDataset}
+          handleUpload={handleUpload}
+          uploading={uploading}
+          uploadProgress={uploadProgress}
+        />
+        <Content className="p-6 max-w-[1600px] mx-auto w-full transition-all duration-300">
+          {isInitLoading ? (
+            <FullPageSkeleton />
+          ) : currentDatasetId ? (
+            <>
+              <Card className="mb-6 shadow-sm hover:shadow-md transition-shadow" bordered={false}>
+                <Row gutter={24} align="middle">
+                  <Col span={12}>
+                    <RangePicker
+                      showTime
+                      onChange={(dates) => setDateRange(dates)}
+                      className="w-full"
+                      placeholder={["开始日期", "结束日期"]}
+                    />
+                  </Col>
+                  <Col span={12} className="text-right">
+                    <span className="text-gray-400 text-sm font-mono bg-gray-50 px-3 py-1 rounded-full border border-gray-100">
+                      ID: {currentDatasetId}
+                    </span>
+                  </Col>
+                </Row>
+              </Card>
 
-            {currentDataset && currentDataset.status === "failed" ? (
-              <Empty
-                description={<span style={{ color: "red" }}>数据处理失败，请检查文件格式。</span>}
+              {currentDataset && currentDataset.status === "failed" ? (
+                <Empty
+                  description={<span style={{ color: "red" }}>数据处理失败，请检查文件格式。</span>}
+                />
+              ) : loading ||
+                (currentDataset &&
+                  (currentDataset.status === "pending" ||
+                    currentDataset.status === "processing")) ? (
+                <ChartAreaSkeleton />
+              ) : (
+                <ChartPanel
+                  option={getOption()}
+                  chartRef={chartRef}
+                  onChartEvents={onChartEvents}
+                  stats={stats}
+                  selectedMetric={selectedMetric}
+                  setSelectedMetric={setSelectedMetric}
+                  annotateMode={annotateMode}
+                  setAnnotateMode={setAnnotateMode}
+                  fullscreen={fullscreen}
+                  setFullscreen={setFullscreen}
+                  handleSaveImage={handleSaveImage}
+                  handleToggleFullscreen={handleToggleFullscreen}
+                  yMin={yMin}
+                  yMax={yMax}
+                  setYMin={setYMin}
+                  setYMax={setYMax}
+                  handleResetYAxis={handleResetYAxis}
+                  scrollToTable={scrollToTable}
+                  themeColor={themeColor}
+                />
+              )}
+
+              <AnnotationTable
+                annotations={annotations}
+                selections={selectionRanges}
+                zoomToRange={zoomToRange}
+                setEditingAnnotation={setEditingAnnotation}
+                annotationForm={annotationForm}
+                setAnnotationModalVisible={setAnnotationModalVisible}
+                handleDeleteAnnotation={handleDeleteAnnotation}
+                tableRef={tableRef}
+                onCreateFromSelection={(sel) => {
+                  setCurrentBrushRange([sel.start_time, sel.end_time]);
+                  setAnnotationModalVisible(true);
+                }}
+                onRemoveSelection={(sel) => {
+                  setSelectionRanges((prev) =>
+                    prev.filter(
+                      (s) => !(s.start_time === sel.start_time && s.end_time === sel.end_time),
+                    ),
+                  );
+                }}
               />
-            ) : loading ||
-              (currentDataset &&
-                (currentDataset.status === "pending" || currentDataset.status === "processing")) ? (
-              <ChartAreaSkeleton />
-            ) : (
-              <ChartPanel
-                option={getOption()}
-                chartRef={chartRef}
-                onChartEvents={onChartEvents}
-                stats={stats}
-                selectedMetric={selectedMetric}
-                setSelectedMetric={setSelectedMetric}
-                annotateMode={annotateMode}
-                setAnnotateMode={setAnnotateMode}
-                fullscreen={fullscreen}
-                setFullscreen={setFullscreen}
-                handleSaveImage={handleSaveImage}
-                handleToggleFullscreen={handleToggleFullscreen}
-                yMin={yMin}
-                yMax={yMax}
-                setYMin={setYMin}
-                setYMax={setYMax}
-                handleResetYAxis={handleResetYAxis}
-                scrollToTable={scrollToTable}
-                themeColor={themeColor}
-              />
-            )}
 
-            <AnnotationTable
-              annotations={annotations}
-              selections={selectionRanges}
-              zoomToRange={zoomToRange}
-              setEditingAnnotation={setEditingAnnotation}
-              annotationForm={annotationForm}
-              setAnnotationModalVisible={setAnnotationModalVisible}
-              handleDeleteAnnotation={handleDeleteAnnotation}
-              tableRef={tableRef}
-              onCreateFromSelection={(sel) => {
-                setCurrentBrushRange([sel.start_time, sel.end_time]);
-                setAnnotationModalVisible(true);
-              }}
-              onRemoveSelection={(sel) => {
-                setSelectionRanges((prev) =>
-                  prev.filter(
-                    (s) => !(s.start_time === sel.start_time && s.end_time === sel.end_time),
-                  ),
-                );
-              }}
-            />
-
-            <Row gutter={16} style={{ marginBottom: "20px", marginTop: "20px" }}>
-              {stats.map((s, idx) => (
-                <Col span={6} key={idx} style={{ marginBottom: 10 }}>
-                  <Card size="small" title={s.metric} hoverable style={{ borderRadius: 8 }}>
-                    <Statistic title="平均值" value={s.avg} precision={2} />
-                    <div
-                      style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        marginTop: 10,
-                        fontSize: "0.8em",
-                        color: "#666",
-                      }}
-                    >
-                      <span>最小值: {s.min}</span>
-                      <span>最大值: {s.max}</span>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-6 mb-6">
+                {stats.map((s, idx) => (
+                  <Card
+                    key={idx}
+                    size="small"
+                    title={<span className="text-gray-600 font-medium">{s.metric}</span>}
+                    className="shadow-sm hover:shadow-md transition-shadow"
+                    bordered={false}
+                  >
+                    <Statistic
+                      title={<span className="text-xs text-gray-400">平均值</span>}
+                      value={s.avg}
+                      precision={2}
+                      valueStyle={{ fontWeight: 600, color: themeColor }}
+                    />
+                    <div className="flex justify-between mt-3 pt-3 border-t border-gray-50 text-xs text-gray-500">
+                      <span className="font-mono">Min: {s.min}</span>
+                      <span className="font-mono">Max: {s.max}</span>
                     </div>
                   </Card>
-                </Col>
-              ))}
-            </Row>
-          </>
-        ) : (
-          <div
-            style={{
-              marginTop: "40px",
-              padding: "80px 20px",
-              textAlign: "center",
-              background: "#fff",
-              borderRadius: 16,
-              boxShadow: "0 4px 12px rgba(0,0,0,0.03)",
-              border: "1px solid #f0f0f0",
-            }}
-          >
-            <Empty
-              image="https://gw.alipayobjects.com/zos/antfincdn/ZHrcdLPrvN/empty.svg"
-              imageStyle={{ height: 160, marginBottom: 20 }}
-              description={
-                <div style={{ color: "#666" }}>
-                  <h2
-                    style={{
-                      fontSize: 20,
-                      fontWeight: 600,
-                      color: "#333",
-                      marginBottom: 12,
-                    }}
-                  >
-                    暂无数据可视化
-                  </h2>
-                  <p style={{ fontSize: 14, color: "#999", maxWidth: 400, margin: "0 auto 24px" }}>
-                    请从顶部工具栏选择已有的数据集，或上传新的 CSV 文件以开始分析。
-                    支持时间序列数据的自动解析与交互式图表展示。
-                  </p>
-                </div>
-              }
-            >
-              <Space size="middle">
-                <Button
-                  type="primary"
-                  size="large"
-                  icon={<UploadOutlined />}
-                  onClick={() => document.querySelector(".ant-upload input").click()}
-                  style={{
-                    height: 48,
-                    padding: "0 32px",
-                    borderRadius: 24,
-                    fontSize: 16,
-                    boxShadow: "0 4px 10px rgba(24, 144, 255, 0.3)",
-                  }}
-                >
-                  上传 CSV 数据
-                </Button>
-                {datasets.length > 0 && (
+                ))}
+              </div>
+            </>
+          ) : (
+            <div className="mt-10 py-20 px-6 text-center bg-white rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center justify-center min-h-[500px]">
+              <Empty
+                image="https://gw.alipayobjects.com/zos/antfincdn/ZHrcdLPrvN/empty.svg"
+                imageStyle={{ height: 200, marginBottom: 24 }}
+                description={
+                  <div className="max-w-md mx-auto">
+                    <h2 className="text-2xl font-bold text-gray-800 mb-4">暂无数据可视化</h2>
+                    <p className="text-gray-500 mb-8 leading-relaxed">
+                      请从顶部工具栏选择已有的数据集，或上传新的 CSV 文件以开始分析。
+                      <br />
+                      支持时间序列数据的自动解析与交互式图表展示。
+                    </p>
+                  </div>
+                }
+              >
+                <Space size="middle">
                   <Button
+                    type="primary"
                     size="large"
-                    onClick={() => setCurrentDatasetId(datasets[0].id)}
-                    style={{
-                      height: 48,
-                      padding: "0 32px",
-                      borderRadius: 24,
-                      fontSize: 16,
-                    }}
+                    icon={<UploadOutlined />}
+                    onClick={() => document.querySelector(".ant-upload input").click()}
+                    className="h-12 px-8 rounded-full text-base shadow-lg shadow-blue-500/30"
                   >
-                    查看最新数据
+                    上传 CSV 数据
                   </Button>
-                )}
-              </Space>
-            </Empty>
-          </div>
-        )}
+                  {datasets.length > 0 && (
+                    <Button
+                      size="large"
+                      onClick={() => setCurrentDatasetId(datasets[0].id)}
+                      className="h-12 px-8 rounded-full text-base"
+                    >
+                      查看最新数据
+                    </Button>
+                  )}
+                </Space>
+              </Empty>
+            </div>
+          )}
 
-        <ContextMenu
-          contextMenu={{ ...contextMenu, currentBrushRange: currentBrushRange }}
-          handleDownloadRange={handleDownloadRange}
-          setContextMenu={setContextMenu}
-          handleDeleteAnnotation={handleDeleteAnnotation}
-          handleMouseEnter={handleMouseEnter}
-          handleMouseLeave={handleMouseLeave}
-          setEditingAnnotation={setEditingAnnotation}
-          annotationForm={annotationForm}
-          setAnnotationModalVisible={setAnnotationModalVisible}
-        />
+          <ContextMenu
+            contextMenu={{ ...contextMenu, currentBrushRange: currentBrushRange }}
+            handleDownloadRange={handleDownloadRange}
+            setContextMenu={setContextMenu}
+            handleDeleteAnnotation={handleDeleteAnnotation}
+            handleMouseEnter={handleMouseEnter}
+            handleMouseLeave={handleMouseLeave}
+            setEditingAnnotation={setEditingAnnotation}
+            annotationForm={annotationForm}
+            setAnnotationModalVisible={setAnnotationModalVisible}
+          />
 
-        <AnnotationModal
-          editingAnnotation={editingAnnotation}
-          visible={annotationModalVisible}
-          setVisible={setAnnotationModalVisible}
-          annotationForm={annotationForm}
-          handleSaveAnnotation={handleSaveAnnotation}
-        />
-      </Content>
-    </Layout>
+          <AnnotationModal
+            editingAnnotation={editingAnnotation}
+            visible={annotationModalVisible}
+            setVisible={setAnnotationModalVisible}
+            annotationForm={annotationForm}
+            handleSaveAnnotation={handleSaveAnnotation}
+          />
+        </Content>
+      </Layout>
+    </ConfigProvider>
   );
 };
 

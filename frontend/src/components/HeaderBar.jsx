@@ -1,9 +1,15 @@
 import React from "react";
-import { Layout, Select, Upload, Button, Progress, ColorPicker } from "antd";
-import { UploadOutlined, DeleteOutlined } from "@ant-design/icons";
+import { Layout, Dropdown, Button, Progress, ColorPicker, Tooltip, Empty, Upload } from "antd";
+import {
+  CloudUploadOutlined,
+  DeleteOutlined,
+  BarChartOutlined,
+  DownOutlined,
+  DatabaseOutlined,
+  CheckOutlined,
+} from "@ant-design/icons";
 
 const { Header } = Layout;
-const { Option } = Select;
 
 // 辅助函数：根据背景色计算文本颜色（黑/白）以保证对比度
 const getContrastColor = (hexColor) => {
@@ -28,76 +34,169 @@ export default function HeaderBar({
   uploadProgress,
 }) {
   const textColor = getContrastColor(themeColor);
+  const isLight = textColor === "#000000";
+
+  const currentDataset = datasets.find((d) => d.id === currentDatasetId);
+
+  // 构建下拉菜单项
+  const items =
+    datasets.length > 0
+      ? datasets.map((d) => ({
+          key: d.id,
+          label: (
+            <div
+              className="flex items-center justify-between min-w-[240px] py-1 group"
+              onClick={() => setCurrentDatasetId(d.id)}
+            >
+              <div className="flex items-center gap-2 overflow-hidden mr-4">
+                <DatabaseOutlined
+                  className={`${d.id === currentDatasetId ? "text-blue-500" : "text-gray-400"}`}
+                />
+                <span
+                  className={`truncate font-medium ${
+                    d.id === currentDatasetId ? "text-blue-600" : "text-gray-700"
+                  }`}
+                >
+                  {d.filename}
+                </span>
+              </div>
+
+              <div className="flex items-center">
+                {d.id === currentDatasetId && (
+                  <CheckOutlined className="text-blue-500 mr-2 text-xs" />
+                )}
+                <Button
+                  type="text"
+                  size="small"
+                  danger
+                  icon={<DeleteOutlined />}
+                  className="opacity-0 group-hover:opacity-100 transition-opacity"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDeleteDataset(e, d.id);
+                  }}
+                />
+              </div>
+            </div>
+          ),
+        }))
+      : [
+          {
+            key: "empty",
+            label: (
+              <Empty
+                image={Empty.PRESENTED_IMAGE_SIMPLE}
+                description="暂无数据集"
+                className="py-2"
+              />
+            ),
+            disabled: true,
+          },
+        ];
 
   return (
     <Header
-      className="flex items-center px-5 sticky top-0 z-[1000] w-full shadow-md"
+      className="flex items-center justify-between px-6 sticky top-0 z-[1000] w-full shadow-md transition-all duration-300 backdrop-blur-md"
       style={{
-        display: "flex", // 兜底：防止 Tailwind 未加载时布局错乱
-        alignItems: "center", // 兜底
         background: themeColor,
-        padding: "0 20px", // 兜底
-        position: "sticky", // 兜底
-        top: 0, // 兜底
-        zIndex: 1000, // 兜底
-        width: "100%", // 兜底
+        height: "64px",
+        borderBottom: `1px solid ${isLight ? "rgba(0,0,0,0.06)" : "rgba(255,255,255,0.1)"}`,
       }}
     >
-      <div className="logo text-lg font-bold mr-8" style={{ color: textColor }}>
-        时间序列可视化
+      {/* Left: Logo & Theme */}
+      <div className="flex items-center gap-6">
+        <div
+          className="flex items-center gap-3 text-xl font-bold tracking-tight cursor-default select-none"
+          style={{ color: textColor }}
+        >
+          <div
+            className={`flex items-center justify-center w-8 h-8 rounded-lg ${
+              isLight ? "bg-black/5" : "bg-white/10"
+            }`}
+          >
+            <BarChartOutlined className="" />
+          </div>
+          <span className="font-sans">DataView</span>
+        </div>
+
+        <div className="h-6 w-px bg-current opacity-10" style={{ color: textColor }} />
+
+        {/* Dataset Switcher - Redesigned */}
+        <Dropdown
+          menu={{ items, className: "max-h-[400px] overflow-y-auto rounded-xl p-2 shadow-xl" }}
+          trigger={["click"]}
+          placement="bottomLeft"
+        >
+          <Button
+            type="text"
+            className={`flex items-center gap-2 px-3 h-9 transition-all duration-200 hover:bg-black/5 ${
+              !isLight && "hover:bg-white/10"
+            }`}
+            style={{ color: textColor }}
+          >
+            <DatabaseOutlined className="opacity-70" />
+            <span className="font-medium max-w-[200px] truncate">
+              {currentDataset ? currentDataset.filename : "选择数据集"}
+            </span>
+            <DownOutlined className="text-xs opacity-50 ml-1" />
+          </Button>
+        </Dropdown>
       </div>
-      <div style={{ marginRight: "1rem", display: "flex", alignItems: "center" }}>
-        <span style={{ color: textColor, marginRight: "8px" }}>主题色:</span>
-        <ColorPicker
-          value={themeColor}
-          onChange={(c) => setThemeColor(c.toHexString())}
-          format="hex"
-        />
-      </div>
-      <Select
-        style={{ width: 300, marginRight: "1rem" }}
-        placeholder="选择数据集"
-        value={currentDatasetId}
-        onChange={setCurrentDatasetId}
-        notFoundContent="暂无数据集"
-        optionLabelProp="label"
-      >
-        {datasets.map((d) => (
-          <Option key={d.id} value={d.id} label={d.filename}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <span
-                style={{
-                  overflow: "hidden",
-                  whiteSpace: "nowrap",
-                  textOverflow: "ellipsis",
-                  marginRight: "8px",
-                }}
-                title={d.filename}
-              >
-                {d.filename}
-              </span>
-              <DeleteOutlined
-                onClick={(e) => handleDeleteDataset(e, d.id)}
-                style={{ color: "red", cursor: "pointer", flexShrink: 0 }}
-              />
+
+      {/* Right: Actions */}
+      <div className="flex items-center gap-4">
+        {/* Upload Progress */}
+        {uploading && (
+          <div className="flex flex-col items-end gap-0.5 w-40 animate-pulse">
+            <div
+              className="flex justify-between w-full text-[10px] font-medium opacity-80"
+              style={{ color: textColor }}
+            >
+              <span>上传中...</span>
+              <span>{uploadProgress}%</span>
             </div>
-          </Option>
-        ))}
-      </Select>
-      <Upload customRequest={handleUpload} showUploadList={false} disabled={uploading}>
-        <Button icon={<UploadOutlined />} loading={uploading}>
-          {uploading ? "上传中..." : "上传 CSV"}
-        </Button>
-      </Upload>
-      {uploading && (
-        <Progress
-          percent={uploadProgress}
-          size="small"
-          status="active"
-          style={{ width: 100, marginLeft: 10 }}
-          format={(percent) => `${percent}%`}
-        />
-      )}
+            <Progress
+              percent={uploadProgress}
+              size="small"
+              showInfo={false}
+              strokeColor={isLight ? themeColor : "#fff"}
+              trailColor={isLight ? "rgba(0,0,0,0.1)" : "rgba(255,255,255,0.2)"}
+              className="m-0 leading-none"
+            />
+          </div>
+        )}
+
+        {/* Upload Button */}
+        <Upload customRequest={handleUpload} showUploadList={false} disabled={uploading}>
+          <Tooltip title="上传新的 CSV 数据文件">
+            <Button
+              type="primary"
+              icon={uploading ? null : <CloudUploadOutlined />}
+              loading={uploading}
+              className={`
+                border-none shadow-none font-medium h-9 px-4 rounded-full flex items-center gap-2
+                ${
+                  isLight
+                    ? "bg-black text-white hover:bg-gray-800"
+                    : "bg-white text-gray-900 hover:bg-gray-100"
+                }
+              `}
+            >
+              {uploading ? "处理中..." : "上传数据"}
+            </Button>
+          </Tooltip>
+        </Upload>
+
+        {/* Theme Picker */}
+        <div className="flex items-center">
+          <ColorPicker
+            value={themeColor}
+            onChange={(c) => setThemeColor(c.toHexString())}
+            format="hex"
+            size="small"
+          />
+        </div>
+      </div>
     </Header>
   );
 }
