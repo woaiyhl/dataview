@@ -256,6 +256,28 @@ def upload_file():
             
         return jsonify(dataset.to_dict()), 201
 
+@app.route('/api/datasets/<int:dataset_id>', methods=['DELETE'])
+def delete_dataset(dataset_id):
+    dataset = Dataset.query.get(dataset_id)
+    if not dataset:
+        return jsonify({'error': 'Dataset not found'}), 404
+    
+    try:
+        # Delete associated data points
+        DataPoint.query.filter_by(dataset_id=dataset_id).delete()
+        
+        # Delete associated annotations
+        Annotation.query.filter_by(dataset_id=dataset_id).delete()
+        
+        # Delete dataset record
+        db.session.delete(dataset)
+        db.session.commit()
+        
+        return jsonify({'status': 'success'})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/datasets', methods=['GET'])
 def get_datasets():
     datasets = Dataset.query.order_by(Dataset.created_at.desc()).all()

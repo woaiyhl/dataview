@@ -1,5 +1,12 @@
 import React, { useEffect, useRef } from "react";
-import { DownloadOutlined, EditOutlined, DeleteOutlined, PlusOutlined } from "@ant-design/icons";
+import { Modal } from "antd";
+import {
+  DownloadOutlined,
+  EditOutlined,
+  DeleteOutlined,
+  PlusOutlined,
+  ExclamationCircleOutlined,
+} from "@ant-design/icons";
 
 export default function ContextMenu({
   contextMenu,
@@ -32,8 +39,8 @@ export default function ContextMenu({
   const MenuItem = ({ icon, text, onClick, danger }) => (
     <div
       className={`flex items-center gap-3 px-4 py-2.5 cursor-pointer text-sm font-medium transition-all duration-200 group ${
-        danger 
-          ? "text-red-500 hover:bg-red-50 hover:text-red-600" 
+        danger
+          ? "text-red-500 hover:bg-red-50 hover:text-red-600"
           : "text-gray-700 hover:bg-blue-50 hover:text-blue-600"
       }`}
       onClick={(e) => {
@@ -41,7 +48,11 @@ export default function ContextMenu({
         onClick();
       }}
     >
-      <span className={`text-lg transition-transform duration-200 group-hover:scale-110 ${danger ? 'text-red-400' : 'text-gray-400 group-hover:text-blue-500'}`}>
+      <span
+        className={`text-lg transition-transform duration-200 group-hover:scale-110 ${
+          danger ? "text-red-400" : "text-gray-400 group-hover:text-blue-500"
+        }`}
+      >
         {icon}
       </span>
       <span>{text}</span>
@@ -91,8 +102,18 @@ export default function ContextMenu({
             text="删除标注"
             danger
             onClick={() => {
-              handleDeleteAnnotation(contextMenu.annotation.id);
               setContextMenu({ ...contextMenu, visible: false });
+              Modal.confirm({
+                title: "确定删除该标注？",
+                icon: <ExclamationCircleOutlined />,
+                content: "此操作不可恢复。",
+                okText: "删除",
+                okType: "danger",
+                cancelText: "取消",
+                onOk() {
+                  return handleDeleteAnnotation(contextMenu.annotation.id);
+                },
+              });
             }}
           />
         </>

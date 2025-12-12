@@ -215,8 +215,8 @@ const App = () => {
   }, [currentDatasetId, dateRange]);
 
   const handleDeleteDataset = async (e, id) => {
-    e.stopPropagation();
-    if (!window.confirm("确定要删除该数据集吗？")) return;
+    // e.stopPropagation() is handled in the caller if needed, or we keep it here if passed e
+    if (e && e.stopPropagation) e.stopPropagation();
 
     try {
       await axios.delete(`/api/datasets/${id}`);
@@ -385,7 +385,7 @@ const App = () => {
   };
 
   const handleDeleteAnnotation = async (id) => {
-    if (!window.confirm("确定删除该标注？")) return;
+    // Confirmation is handled in UI components
     try {
       await axios.delete(`/api/annotations/${id}`);
       message.success("标注已删除");

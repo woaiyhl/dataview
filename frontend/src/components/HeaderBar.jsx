@@ -1,5 +1,15 @@
 import React from "react";
-import { Layout, Dropdown, Button, Progress, ColorPicker, Tooltip, Empty, Upload } from "antd";
+import {
+  Layout,
+  Dropdown,
+  Button,
+  Progress,
+  ColorPicker,
+  Tooltip,
+  Empty,
+  Upload,
+  Modal,
+} from "antd";
 import {
   CloudUploadOutlined,
   DeleteOutlined,
@@ -7,6 +17,7 @@ import {
   DownOutlined,
   DatabaseOutlined,
   CheckOutlined,
+  ExclamationCircleOutlined,
 } from "@ant-design/icons";
 
 const { Header } = Layout;
@@ -73,7 +84,17 @@ export default function HeaderBar({
                   className="opacity-0 group-hover:opacity-100 transition-opacity"
                   onClick={(e) => {
                     e.stopPropagation();
-                    handleDeleteDataset(e, d.id);
+                    Modal.confirm({
+                      title: "确定要删除该数据集吗？",
+                      icon: <ExclamationCircleOutlined />,
+                      content: "删除后无法恢复，包括所有关联的数据点和标注。",
+                      okText: "确定删除",
+                      okType: "danger",
+                      cancelText: "取消",
+                      onOk() {
+                        return handleDeleteDataset(null, d.id);
+                      },
+                    });
                   }}
                 />
               </div>
