@@ -225,7 +225,14 @@ def merge_chunks():
         return jsonify({'error': 'Chunks not found'}), 404
         
     # Create final file
-    unique_filename = f"{upload_id}_{filename}"
+    # unique_filename = f"{upload_id}_{filename}"
+    
+    # Generate a safe unique filename to avoid "File name too long" errors
+    name, ext = os.path.splitext(filename)
+    if len(name) > 50:
+        name = name[:50]
+        
+    unique_filename = f"{int(datetime.now().timestamp())}_{name}{ext}"
     file_path = os.path.join(UPLOAD_DIR, unique_filename)
     
     try:

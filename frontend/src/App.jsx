@@ -844,7 +844,7 @@ const App = () => {
           uploading={uploading}
           uploadProgress={uploadProgress}
         />
-        <Content className="p-8 max-w-[1600px] mx-auto w-full transition-all duration-300">
+        <Content className="p-4 max-w-[1600px] mx-auto w-full transition-all duration-300">
           {isInitLoading ? (
             <FullPageSkeleton />
           ) : currentDatasetId ? (
@@ -860,7 +860,7 @@ const App = () => {
                     />
                   </Col>
                   <Col span={12} className="text-right">
-                    <span className="text-gray-400 text-sm font-mono bg-gray-50 px-3 py-1 rounded-full border border-gray-100">
+                    <span className="text-gray-400 text-sm font-mono bg-gray-50 px-2 py-1 rounded-full border border-gray-100">
                       ID: {currentDatasetId}
                     </span>
                   </Col>
