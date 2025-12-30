@@ -74,7 +74,7 @@ export default function ChartPanel({
     <Card
       title={
         <div className="flex items-center gap-4">
-          <span className="font-bold text-gray-800">数据可视化</span>
+          <span className="font-bold text-gray-800 text-lg">数据可视化</span>
           <Segmented
             options={[
               { label: "浏览模式", value: false, icon: <EyeOutlined /> },
@@ -87,11 +87,11 @@ export default function ChartPanel({
         </div>
       }
       bordered={false}
-      className={`shadow-sm transition-all duration-300 ${
-        fullscreen ? "fixed inset-0 z-[1000] rounded-none h-screen" : "rounded-lg hover:shadow-md"
+      className={`shadow-md border-none transition-all duration-300 ${
+        fullscreen ? "fixed inset-0 z-[1000] rounded-none h-screen" : "rounded-xl"
       }`}
       bodyStyle={{
-        padding: "10px 24px 24px 24px",
+        padding: "20px 24px 24px 24px",
         height: fullscreen ? "calc(100vh - 60px)" : "auto",
         display: "flex",
         flexDirection: "column",

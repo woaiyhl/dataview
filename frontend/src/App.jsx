@@ -832,7 +832,7 @@ const App = () => {
         },
       }}
     >
-      <Layout className="min-h-screen bg-gray-50/50">
+      <Layout className="min-h-screen bg-gray-100">
         <HeaderBar
           themeColor={themeColor}
           setThemeColor={setThemeColor}
@@ -844,12 +844,12 @@ const App = () => {
           uploading={uploading}
           uploadProgress={uploadProgress}
         />
-        <Content className="p-6 max-w-[1600px] mx-auto w-full transition-all duration-300">
+        <Content className="p-8 max-w-[1600px] mx-auto w-full transition-all duration-300">
           {isInitLoading ? (
             <FullPageSkeleton />
           ) : currentDatasetId ? (
             <>
-              <Card className="mb-6 shadow-sm hover:shadow-md transition-shadow" bordered={false}>
+              <Card className="mb-6 shadow-md rounded-xl border-none" bordered={false}>
                 <Row gutter={24} align="middle">
                   <Col span={12}>
                     <RangePicker
@@ -929,7 +929,7 @@ const App = () => {
                     key={idx}
                     size="small"
                     title={<span className="text-gray-600 font-medium">{s.metric}</span>}
-                    className="shadow-sm hover:shadow-md transition-shadow"
+                    className="shadow-md rounded-xl border-none"
                     bordered={false}
                   >
                     <Statistic
@@ -948,7 +948,7 @@ const App = () => {
             </>
           ) : (
             <div className="flex flex-col justify-center min-h-[calc(100vh-120px)]">
-              <div className="py-20 px-6 text-center bg-white rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center justify-center min-h-[500px]">
+              <div className="py-20 px-6 text-center bg-white rounded-xl shadow-md border-none flex flex-col items-center justify-center min-h-[500px]">
                 <Empty
                   image="https://gw.alipayobjects.com/zos/antfincdn/ZHrcdLPrvN/empty.svg"
                   imageStyle={{

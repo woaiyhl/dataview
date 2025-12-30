@@ -152,11 +152,11 @@ export default function AnnotationTable({
   return (
     <Card
       title={
-        <span className="font-bold text-gray-800">
+        <span className="font-bold text-gray-800 text-lg">
           标注列表 <span className="text-gray-400 text-sm font-normal ml-2">{rows.length} 项</span>
         </span>
       }
-      className="mt-6 shadow-sm hover:shadow-md transition-shadow overflow-hidden"
+      className="mt-6 shadow-md rounded-xl border-none overflow-hidden"
       bordered={false}
       ref={tableRef}
       bodyStyle={{ padding: 0 }}
