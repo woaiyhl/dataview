@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import { Card, Select, Space, Button, Segmented, Tooltip, Divider, Empty, Spin } from "antd";
 import {
   FullscreenOutlined,
@@ -10,6 +10,7 @@ import {
   EditOutlined,
   LineChartOutlined,
   BarChartOutlined,
+  CloseOutlined,
 } from "@ant-design/icons";
 
 // ECharts 按需引入
@@ -61,6 +62,8 @@ export default function ChartPanel({
   chartType,
   setChartType,
 }) {
+  const [showTip, setShowTip] = useState(true);
+
   // 检查是否有数据
   const hasData = useMemo(() => {
     if (!option?.series) return false;
@@ -187,9 +190,13 @@ export default function ChartPanel({
               lazyUpdate={true}
               onEvents={onChartEvents}
             />
-            {annotateMode && (
-              <div className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-blue-50 text-blue-600 px-4 py-1 rounded-full text-xs font-medium border border-blue-100 shadow-sm pointer-events-none opacity-80 z-10">
-                提示：在图表上拖拽即可创建标注
+            {annotateMode && showTip && (
+              <div className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-blue-50 text-blue-600 px-4 py-1 rounded-full text-xs font-medium border border-blue-100 shadow-sm opacity-80 z-10 flex items-center gap-2">
+                <span>提示：在图表上拖拽即可创建标注</span>
+                <CloseOutlined
+                  className="cursor-pointer hover:text-blue-800"
+                  onClick={() => setShowTip(false)}
+                />
               </div>
             )}
           </>
