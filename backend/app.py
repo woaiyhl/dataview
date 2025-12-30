@@ -210,7 +210,7 @@ def merge_chunks():
             for i in chunks:
                 chunk_path = os.path.join(chunk_dir, str(i))
                 with open(chunk_path, 'rb') as source:
-                    shutil.copyfileobj(source, dest)
+                    shutil.copyfileobj(source, dest, 10 * 1024 * 1024) # 10MB buffer
                     
         # Clean up chunks
         shutil.rmtree(chunk_dir)

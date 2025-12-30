@@ -203,18 +203,31 @@ const App = () => {
   useEffect(() => {
     let pollTimer;
     const controller = new AbortController();
+    let consecutiveErrors = 0;
 
     if (
       currentDataset &&
       (currentDataset.status === "pending" || currentDataset.status === "processing")
     ) {
-      pollTimer = setInterval(() => {
-        fetchDatasets(controller.signal);
+      pollTimer = setInterval(async () => {
+        // Stop polling if too many errors
+        if (consecutiveErrors >= 5) {
+          clearInterval(pollTimer);
+          message.error("连接服务器失败，已停止自动刷新");
+          return;
+        }
+
+        const datasetsSuccess = await fetchDatasets(controller.signal);
+        if (!datasetsSuccess) {
+          consecutiveErrors++;
+          return;
+        }
+
         // Also try fetching data in case it just finished
         if (currentDatasetId) {
-          fetchStats(currentDatasetId, controller.signal);
+          await fetchStats(currentDatasetId, controller.signal);
           if (selectedMetric) {
-            fetchData(currentDatasetId, dateRange, selectedMetric, controller.signal);
+            await fetchData(currentDatasetId, dateRange, selectedMetric, controller.signal);
           }
         }
       }, 2000);
@@ -279,10 +292,13 @@ const App = () => {
       if (res.data.length > 0 && !currentDatasetId) {
         setCurrentDatasetId(res.data[0].id);
       }
+      return true;
     } catch (error) {
       if (!axios.isCancel(error)) {
         // Quiet fail if no backend or empty
+        console.error("Fetch datasets failed", error);
       }
+      return false;
     } finally {
       setIsInitLoading(false);
     }
@@ -303,10 +319,12 @@ const App = () => {
 
       const res = await axios.get(url, { params, signal });
       setChartData(res.data);
+      return true;
     } catch (error) {
       if (!axios.isCancel(error)) {
         message.error("加载图表数据失败");
       }
+      return false;
     } finally {
       setLoading(false);
     }
@@ -325,11 +343,13 @@ const App = () => {
         // 如果没有指标，手动结束 loading，因为不会触发 fetchData
         setLoading(false);
       }
+      return true;
     } catch (error) {
       if (!axios.isCancel(error)) {
         console.error(error);
         setLoading(false);
       }
+      return false;
     }
   };
 
@@ -353,29 +373,51 @@ const App = () => {
     const uploadId = generateUploadId(file);
     const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
 
+    // Concurrency limit
+    const MAX_CONCURRENCY = 6;
+
     try {
       // 1. Check uploaded chunks
       const checkRes = await axios.get(`/api/upload/check?uploadId=${uploadId}`);
       const uploadedChunks = new Set(checkRes.data.uploadedChunks);
 
-      // 2. Upload missing chunks
-      for (let i = 0; i < totalChunks; i++) {
-        if (uploadedChunks.has(i)) {
-          setUploadProgress(Math.round(((i + 1) / totalChunks) * 100));
-          continue;
-        }
+      // Update initial progress
+      if (uploadedChunks.size > 0) {
+        setUploadProgress(Math.round((uploadedChunks.size / totalChunks) * 100));
+      }
 
-        const start = i * CHUNK_SIZE;
+      // Identify missing chunks
+      const chunksToUpload = [];
+      for (let i = 0; i < totalChunks; i++) {
+        if (!uploadedChunks.has(i)) {
+          chunksToUpload.push(i);
+        }
+      }
+
+      // Function to upload a single chunk
+      const uploadChunk = async (chunkIndex) => {
+        const start = chunkIndex * CHUNK_SIZE;
         const end = Math.min(start + CHUNK_SIZE, file.size);
         const chunk = file.slice(start, end);
 
         const formData = new FormData();
         formData.append("uploadId", uploadId);
-        formData.append("chunkIndex", i);
+        formData.append("chunkIndex", chunkIndex);
         formData.append("file", chunk);
 
-        await axios.post("/api/upload/chunk", formData);
-        setUploadProgress(Math.round(((i + 1) / totalChunks) * 100));
+        await axios.post("/api/upload/chunk", formData, {
+          timeout: 60000, // 60s timeout for each chunk
+        });
+
+        // Update progress
+        uploadedChunks.add(chunkIndex);
+        setUploadProgress(Math.round((uploadedChunks.size / totalChunks) * 100));
+      };
+
+      // Process chunks with concurrency limit
+      for (let i = 0; i < chunksToUpload.length; i += MAX_CONCURRENCY) {
+        const batch = chunksToUpload.slice(i, i + MAX_CONCURRENCY);
+        await Promise.all(batch.map((index) => uploadChunk(index)));
       }
 
       // 3. Merge chunks
