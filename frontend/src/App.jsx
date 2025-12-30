@@ -202,23 +202,26 @@ const App = () => {
   // Poll for status updates if processing
   useEffect(() => {
     let pollTimer;
+    const controller = new AbortController();
+
     if (
       currentDataset &&
       (currentDataset.status === "pending" || currentDataset.status === "processing")
     ) {
       pollTimer = setInterval(() => {
-        fetchDatasets();
+        fetchDatasets(controller.signal);
         // Also try fetching data in case it just finished
         if (currentDatasetId) {
-          fetchStats(currentDatasetId);
+          fetchStats(currentDatasetId, controller.signal);
           if (selectedMetric) {
-            fetchData(currentDatasetId, dateRange, selectedMetric);
+            fetchData(currentDatasetId, dateRange, selectedMetric, controller.signal);
           }
         }
       }, 2000);
     }
     return () => {
       if (pollTimer) clearInterval(pollTimer);
+      controller.abort();
     };
   }, [currentDataset, currentDatasetId, selectedMetric]);
 
@@ -237,41 +240,55 @@ const App = () => {
     // e.stopPropagation() is handled in the caller if needed, or we keep it here if passed e
     if (e && e.stopPropagation) e.stopPropagation();
 
+    // Snapshot for rollback
+    const prevDatasets = [...datasets];
+    const prevCurrentId = currentDatasetId;
+    const prevChartData = chartData;
+    const prevStats = stats;
+
+    // Optimistic Update
+    const newDatasets = datasets.filter((d) => d.id !== id);
+    setDatasets(newDatasets);
+
+    if (currentDatasetId === id) {
+      setCurrentDatasetId(newDatasets.length > 0 ? newDatasets[0].id : null);
+      if (newDatasets.length === 0) {
+        setChartData(null);
+        setStats([]);
+      }
+    }
+
     try {
       await axios.delete(`/api/datasets/${id}`);
       message.success("数据集删除成功");
-
-      const newDatasets = datasets.filter((d) => d.id !== id);
-      setDatasets(newDatasets);
-
-      if (currentDatasetId === id) {
-        setCurrentDatasetId(newDatasets.length > 0 ? newDatasets[0].id : null);
-        if (newDatasets.length === 0) {
-          setChartData(null);
-          setStats([]);
-        }
-      }
     } catch (error) {
       console.error(error);
       message.error("删除数据集失败");
+      // Rollback
+      setDatasets(prevDatasets);
+      setCurrentDatasetId(prevCurrentId);
+      setChartData(prevChartData);
+      setStats(prevStats);
     }
   };
 
-  const fetchDatasets = async () => {
+  const fetchDatasets = async (signal) => {
     try {
-      const res = await axios.get("/api/datasets");
+      const res = await axios.get("/api/datasets", { signal });
       setDatasets(res.data);
       if (res.data.length > 0 && !currentDatasetId) {
         setCurrentDatasetId(res.data[0].id);
       }
     } catch (error) {
-      // Quiet fail if no backend or empty
+      if (!axios.isCancel(error)) {
+        // Quiet fail if no backend or empty
+      }
     } finally {
       setIsInitLoading(false);
     }
   };
 
-  const fetchData = async (id, range, metric) => {
+  const fetchData = async (id, range, metric, signal) => {
     setLoading(true);
     try {
       let url = `/api/data/${id}`;
@@ -284,18 +301,20 @@ const App = () => {
         params.metric = metric;
       }
 
-      const res = await axios.get(url, { params });
+      const res = await axios.get(url, { params, signal });
       setChartData(res.data);
     } catch (error) {
-      message.error("加载图表数据失败");
+      if (!axios.isCancel(error)) {
+        message.error("加载图表数据失败");
+      }
     } finally {
       setLoading(false);
     }
   };
 
-  const fetchStats = async (id) => {
+  const fetchStats = async (id, signal) => {
     try {
-      const res = await axios.get(`/api/stats/${id}`);
+      const res = await axios.get(`/api/stats/${id}`, { signal });
       setStats(res.data);
       if (res.data.length > 0) {
         const metrics = res.data.map((s) => s.metric);
@@ -307,8 +326,10 @@ const App = () => {
         setLoading(false);
       }
     } catch (error) {
-      console.error(error);
-      setLoading(false);
+      if (!axios.isCancel(error)) {
+        console.error(error);
+        setLoading(false);
+      }
     }
   };
 
