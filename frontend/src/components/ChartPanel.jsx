@@ -9,6 +9,7 @@ import {
   Segmented,
   Tooltip,
   Divider,
+  Empty,
 } from "antd";
 import {
   FullscreenOutlined,
@@ -49,6 +50,12 @@ export default function ChartPanel({
   chartType,
   setChartType,
 }) {
+  // 检查是否有数据
+  const hasData = React.useMemo(() => {
+    if (!option?.series) return false;
+    return option.series.some((s) => s.data && s.data.length > 0);
+  }, [option]);
+
   return (
     <Card
       title={
@@ -106,49 +113,6 @@ export default function ChartPanel({
               className="bg-gray-100"
             />
 
-            <Tooltip title="Y轴设置">
-              <Popover
-                title="设置Y轴范围"
-                trigger="click"
-                placement="bottomRight"
-                content={
-                  <div className="flex flex-col gap-3 w-56">
-                    <div className="flex items-center justify-between">
-                      <span className="text-gray-500">最小值</span>
-                      <InputNumber
-                        className="w-32"
-                        value={yMin}
-                        onChange={setYMin}
-                        placeholder="自动"
-                        size="small"
-                      />
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-gray-500">最大值</span>
-                      <InputNumber
-                        className="w-32"
-                        value={yMax}
-                        onChange={setYMax}
-                        placeholder="自动"
-                        size="small"
-                      />
-                    </div>
-                    <div className="flex justify-end pt-2 border-t border-gray-100">
-                      <Button size="small" onClick={handleResetYAxis} type="link" danger>
-                        重置
-                      </Button>
-                    </div>
-                  </div>
-                }
-              >
-                <Button
-                  type="text"
-                  icon={<SettingOutlined />}
-                  className="text-gray-500 hover:text-gray-700"
-                />
-              </Popover>
-            </Tooltip>
-
             <Tooltip title="重置视图">
               <Button
                 type="text"
@@ -189,22 +153,36 @@ export default function ChartPanel({
         </div>
       }
     >
-      <div onContextMenu={(e) => e.preventDefault()} className="relative flex-1 w-full h-full">
-        <ReactECharts
-          ref={chartRef}
-          option={option}
-          style={{
-            height: fullscreen ? "100%" : "500px",
-            width: "100%",
-            cursor: annotateMode ? "crosshair" : "default",
-          }}
-          notMerge={true}
-          lazyUpdate={true}
-          onEvents={onChartEvents}
-        />
-        {annotateMode && (
-          <div className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-blue-50 text-blue-600 px-4 py-1 rounded-full text-xs font-medium border border-blue-100 shadow-sm pointer-events-none opacity-80 z-10">
-            提示：在图表上拖拽即可创建标注
+      <div
+        onContextMenu={(e) => e.preventDefault()}
+        className="relative flex-1 w-full h-full"
+      >
+        {hasData ? (
+          <>
+            <ReactECharts
+              ref={chartRef}
+              option={option}
+              style={{
+                height: fullscreen ? "100%" : "500px",
+                width: "100%",
+                cursor: annotateMode ? "crosshair" : "default",
+              }}
+              notMerge={true}
+              lazyUpdate={true}
+              onEvents={onChartEvents}
+            />
+            {annotateMode && (
+              <div className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-blue-50 text-blue-600 px-4 py-1 rounded-full text-xs font-medium border border-blue-100 shadow-sm pointer-events-none opacity-80 z-10">
+                提示：在图表上拖拽即可创建标注
+              </div>
+            )}
+          </>
+        ) : (
+          <div
+            className="flex items-center justify-center w-full bg-gray-50 rounded-lg border border-dashed border-gray-200"
+            style={{ height: fullscreen ? "100%" : "500px" }}
+          >
+            <Empty description="暂无数据" />
           </div>
         )}
       </div>

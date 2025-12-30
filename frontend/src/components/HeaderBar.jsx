@@ -137,7 +137,7 @@ export default function HeaderBar({
           >
             <BarChartOutlined className="" />
           </div>
-          <span className="font-sans">DataView</span>
+          <span className="font-sans">时序数据可视化</span>
         </div>
 
         <div className="h-6 w-px bg-current opacity-10" style={{ color: textColor }} />
