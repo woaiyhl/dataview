@@ -79,7 +79,24 @@ const App = () => {
   const [contextMenu, setContextMenu] = useState({ visible: false, x: 0, y: 0, annotation: null });
 
   // Theme State
-  const [themeColor, setThemeColor] = useState("#001529");
+  const [themeColor, setThemeColor] = useState(() => {
+    try {
+      const stored = localStorage.getItem("app_theme_color");
+      return stored || "#1890ff";
+    } catch (e) {
+      return "#1890ff";
+    }
+  });
+
+  // Persist theme color and update CSS variable
+  useEffect(() => {
+    try {
+      localStorage.setItem("app_theme_color", themeColor);
+      document.documentElement.style.setProperty("--primary-color", themeColor);
+    } catch (e) {
+      console.error("Failed to persist theme color:", e);
+    }
+  }, [themeColor]);
 
   const [browseMode, setBrowseMode] = useState(false);
   const [annotateMode, setAnnotateMode] = useState(false);
@@ -208,6 +225,7 @@ const App = () => {
   // Fetch data when dataset or range changes
   useEffect(() => {
     if (currentDatasetId) {
+      setLoading(true);
       // Clear previous data
       setChartData(null);
       setSelectedMetric(null);
@@ -279,21 +297,26 @@ const App = () => {
     try {
       const res = await axios.get(`/api/stats/${id}`);
       setStats(res.data);
-
       if (res.data.length > 0) {
         const metrics = res.data.map((s) => s.metric);
         if (!selectedMetric || !metrics.includes(selectedMetric)) {
           setSelectedMetric(res.data[0].metric);
         }
+      } else {
+        // 如果没有指标，手动结束 loading，因为不会触发 fetchData
+        setLoading(false);
       }
     } catch (error) {
       console.error(error);
+      setLoading(false);
     }
   };
 
   // Effect to trigger data fetch when metric changes
   useEffect(() => {
     if (currentDatasetId && selectedMetric) {
+      // 立即设置 loading，防止切换 metric 时出现暂无数据闪烁
+      setLoading(true);
       fetchData(currentDatasetId, dateRange, selectedMetric);
     }
   }, [selectedMetric, currentDatasetId, dateRange]);
@@ -443,7 +466,6 @@ const App = () => {
     inst.dispatchAction({ type: "dataZoom", start: 0, end: 100 });
     setYMin(null);
     setYMax(null);
-    inst.setOption(getOption(), true);
   };
 
   const scrollToTable = () => {
@@ -456,15 +478,38 @@ const App = () => {
     inst.dispatchAction({ type: "dataZoom", startValue: start, endValue: end });
   };
 
-  const getOption = () => {
+  const downsampleData = (data, threshold = 5000) => {
+    if (!data || data.length <= threshold) return data;
+
+    const step = Math.ceil(data.length / threshold);
+    const sampled = [];
+    for (let i = 0; i < data.length; i += step) {
+      sampled.push(data[i]);
+    }
+    // 确保最后一个点被包含，保证时间范围完整
+    if (sampled[sampled.length - 1] !== data[data.length - 1]) {
+      sampled.push(data[data.length - 1]);
+    }
+    return sampled;
+  };
+
+  const chartOption = React.useMemo(() => {
     if (!chartData || !Array.isArray(chartData)) return {};
 
     const visibleSeries = [];
     if (selectedMetric && chartData.length > 0) {
+      // 预处理：如果数据量过大，进行前端降采样
+      const rawData = chartData;
+      const sampledData = downsampleData(rawData);
+
       visibleSeries.push({
         name: selectedMetric,
-        data: chartData.map((d) => [d.timestamp, d.value]),
+        data: sampledData.map((d) => [d.timestamp, d.value]),
         type: chartType,
+        // 大数据量优化配置
+        large: true,
+        largeThreshold: 2000,
+        animation: sampledData.length < 1000, // 数据量大时关闭动画
       });
     }
 
@@ -548,7 +593,7 @@ const App = () => {
         },
       })),
     };
-  };
+  }, [chartData, selectedMetric, chartType, annotations, themeColor, selectionRanges, yMin, yMax]);
 
   const onChartEvents = {
     brushEnd: (params) => {
@@ -719,14 +764,13 @@ const App = () => {
                 <Empty
                   description={<span style={{ color: "red" }}>数据处理失败，请检查文件格式。</span>}
                 />
-              ) : loading ||
-                (currentDataset &&
-                  (currentDataset.status === "pending" ||
-                    currentDataset.status === "processing")) ? (
+              ) : currentDataset &&
+                (currentDataset.status === "pending" || currentDataset.status === "processing") ? (
                 <ChartAreaSkeleton />
               ) : (
                 <ChartPanel
-                  option={getOption()}
+                  loading={loading}
+                  option={chartOption}
                   chartRef={chartRef}
                   onChartEvents={onChartEvents}
                   stats={stats}

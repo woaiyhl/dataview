@@ -1,33 +1,44 @@
-import React from "react";
-import {
-  Card,
-  Select,
-  Space,
-  Button,
-  Popover,
-  InputNumber,
-  Segmented,
-  Tooltip,
-  Divider,
-  Empty,
-} from "antd";
+import React, { useMemo } from "react";
+import { Card, Select, Space, Button, Segmented, Tooltip, Divider, Empty, Spin } from "antd";
 import {
   FullscreenOutlined,
   FullscreenExitOutlined,
   DownloadOutlined,
   ReloadOutlined,
   TableOutlined,
-  SettingOutlined,
   EyeOutlined,
   EditOutlined,
   LineChartOutlined,
   BarChartOutlined,
 } from "@ant-design/icons";
-import ReactECharts from "echarts-for-react";
+
+// ECharts 按需引入
+import ReactEChartsCore from "echarts-for-react/lib/core";
+import * as echarts from "echarts/core";
+import { LineChart, BarChart } from "echarts/charts";
+import {
+  GridComponent,
+  TooltipComponent,
+  DataZoomComponent,
+  MarkAreaComponent,
+} from "echarts/components";
+import { CanvasRenderer } from "echarts/renderers";
+
+// 注册必须的组件
+echarts.use([
+  LineChart,
+  BarChart,
+  GridComponent,
+  TooltipComponent,
+  DataZoomComponent,
+  MarkAreaComponent,
+  CanvasRenderer,
+]);
 
 const { Option } = Select;
 
 export default function ChartPanel({
+  loading,
   option,
   chartRef,
   onChartEvents,
@@ -51,7 +62,7 @@ export default function ChartPanel({
   setChartType,
 }) {
   // 检查是否有数据
-  const hasData = React.useMemo(() => {
+  const hasData = useMemo(() => {
     if (!option?.series) return false;
     return option.series.some((s) => s.data && s.data.length > 0);
   }, [option]);
@@ -153,13 +164,18 @@ export default function ChartPanel({
         </div>
       }
     >
-      <div
-        onContextMenu={(e) => e.preventDefault()}
-        className="relative flex-1 w-full h-full"
-      >
-        {hasData ? (
+      <div onContextMenu={(e) => e.preventDefault()} className="relative flex-1 w-full h-full">
+        {loading ? (
+          <div
+            className="flex items-center justify-center w-full bg-gray-50 rounded-lg border border-dashed border-gray-200"
+            style={{ height: fullscreen ? "100%" : "500px" }}
+          >
+            <Spin tip="加载图表资源..." size="large" />
+          </div>
+        ) : hasData ? (
           <>
-            <ReactECharts
+            <ReactEChartsCore
+              echarts={echarts}
               ref={chartRef}
               option={option}
               style={{
