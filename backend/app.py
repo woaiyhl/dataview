@@ -6,6 +6,8 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
+from sqlalchemy import event
+from sqlalchemy.engine import Engine
 
 app = Flask(__name__)
 CORS(app)
@@ -20,8 +22,25 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(BASE_DIR, 'dataview.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['MAX_CONTENT_LENGTH'] = 1024 * 1024 * 1024 * 5  # 5GB max upload
+app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+    'connect_args': {
+        'check_same_thread': False
+    },
+    'pool_pre_ping': True
+}
 
 db = SQLAlchemy(app)
+
+@event.listens_for(Engine, 'connect')
+def _set_sqlite_pragmas(dbapi_connection, connection_record):
+    try:
+        cursor = dbapi_connection.cursor()
+        cursor.execute('PRAGMA journal_mode=WAL')
+        cursor.execute('PRAGMA synchronous=NORMAL')
+        cursor.execute('PRAGMA busy_timeout=30000')
+        cursor.close()
+    except Exception:
+        pass
 
 # Models
 class Dataset(db.Model):
@@ -74,8 +93,12 @@ def process_csv_task(file_path, dataset_id):
         if not dataset:
             return
         
-        dataset.status = 'processing'
-        db.session.commit()
+        try:
+            dataset.status = 'processing'
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
+            return
         
         try:
             # Use chunksize to process large files
@@ -138,12 +161,14 @@ def process_csv_task(file_path, dataset_id):
             db.session.commit()
             
         except Exception as e:
-            dataset.status = 'failed'
-            db.session.commit()
+            try:
+                dataset.status = 'failed'
+                db.session.commit()
+            except Exception:
+                db.session.rollback()
             print(f"Error processing CSV: {e}")
         finally:
-            # Cleanup file if needed, or keep it
-            pass
+            db.session.remove()
 
 # Routes
 @app.route('/api/health', methods=['GET'])
@@ -349,26 +374,50 @@ def get_data(dataset_id):
 
 @app.route('/api/stats/<int:dataset_id>', methods=['GET'])
 def get_stats(dataset_id):
-    # Use SQL for aggregation
-    from sqlalchemy import func
-    stats = db.session.query(
-        DataPoint.metric,
-        func.min(DataPoint.value).label('min'),
-        func.max(DataPoint.value).label('max'),
-        func.avg(DataPoint.value).label('avg'),
-        func.count(DataPoint.value).label('count')
-    ).filter_by(dataset_id=dataset_id).group_by(DataPoint.metric).all()
+    import math
     
-    result = []
-    for s in stats:
-        result.append({
-            'metric': s.metric,
-            'min': s.min,
-            'max': s.max,
-            'avg': round(s.avg, 2),
-            'count': s.count
-        })
-    return jsonify(result)
+    def safe_float(val):
+        if val is None:
+            return 0
+        try:
+            f = float(val)
+            if math.isnan(f) or math.isinf(f):
+                return 0
+            return f
+        except (ValueError, TypeError):
+            return 0
+
+    try:
+        # Use SQL for aggregation
+        from sqlalchemy import func
+        stats = db.session.query(
+            DataPoint.metric,
+            func.min(DataPoint.value).label('min'),
+            func.max(DataPoint.value).label('max'),
+            func.avg(DataPoint.value).label('avg'),
+            func.count(DataPoint.value).label('count')
+        ).filter_by(dataset_id=dataset_id).group_by(DataPoint.metric).all()
+        
+        result = []
+        for s in stats:
+            metric_name = s.metric if s.metric is not None else "Unknown"
+            min_val = safe_float(s.min)
+            max_val = safe_float(s.max)
+            avg_val = safe_float(s.avg)
+            
+            result.append({
+                'metric': metric_name,
+                'min': min_val,
+                'max': max_val,
+                'avg': round(avg_val, 2),
+                'count': s.count
+            })
+        return jsonify(result)
+    except Exception as e:
+        print(f"Error in get_stats: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
 
 # Annotation Routes
 @app.route('/api/annotations/<int:dataset_id>', methods=['GET'])

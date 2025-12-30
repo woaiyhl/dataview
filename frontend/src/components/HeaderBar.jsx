@@ -92,7 +92,7 @@ export default function HeaderBar({
                       okType: "danger",
                       cancelText: "取消",
                       onOk() {
-                        return handleDeleteDataset(null, d.id);
+                        handleDeleteDataset(null, d.id);
                       },
                     });
                   }}

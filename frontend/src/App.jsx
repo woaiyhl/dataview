@@ -198,6 +198,7 @@ const App = () => {
 
   // Find current dataset object to check status
   const currentDataset = datasets.find((d) => d.id === currentDatasetId);
+  const currentDatasetStatus = currentDataset?.status;
 
   // Poll for status updates if processing
   useEffect(() => {
@@ -218,40 +219,52 @@ const App = () => {
         }
 
         const datasetsSuccess = await fetchDatasets(controller.signal);
-        if (!datasetsSuccess) {
+        if (datasetsSuccess === null) {
+          return;
+        }
+
+        if (datasetsSuccess === false) {
           consecutiveErrors++;
           return;
         }
 
-        // Also try fetching data in case it just finished
-        if (currentDatasetId) {
-          await fetchStats(currentDatasetId, controller.signal);
-          if (selectedMetric) {
-            await fetchData(currentDatasetId, dateRange, selectedMetric, controller.signal);
-          }
-        }
+        consecutiveErrors = 0;
       }, 2000);
     }
     return () => {
       if (pollTimer) clearInterval(pollTimer);
       controller.abort();
     };
-  }, [currentDataset, currentDatasetId, selectedMetric]);
+  }, [currentDatasetId, currentDatasetStatus]);
 
   // Fetch data when dataset or range changes
   useEffect(() => {
-    if (currentDatasetId) {
+    if (!currentDatasetId) return;
+
+    setChartData(null);
+    setStats([]);
+    setSelectedMetric(null);
+
+    if (currentDatasetStatus === "ready") {
       setLoading(true);
-      // Clear previous data
-      setChartData(null);
-      setSelectedMetric(null);
       fetchStats(currentDatasetId);
+      return;
     }
-  }, [currentDatasetId, dateRange]);
+
+    setLoading(false);
+  }, [currentDatasetId, dateRange, currentDatasetStatus]);
 
   const handleDeleteDataset = async (e, id) => {
     // e.stopPropagation() is handled in the caller if needed, or we keep it here if passed e
     if (e && e.stopPropagation) e.stopPropagation();
+
+    const datasetId = typeof id === "string" ? Number(id) : id;
+    if (datasetId === null || datasetId === undefined || Number.isNaN(datasetId)) {
+      message.error("删除数据集失败：无效的数据集 ID");
+      return;
+    }
+
+    const msgKey = `delete-dataset-${datasetId}`;
 
     // Snapshot for rollback
     const prevDatasets = [...datasets];
@@ -260,10 +273,10 @@ const App = () => {
     const prevStats = stats;
 
     // Optimistic Update
-    const newDatasets = datasets.filter((d) => d.id !== id);
+    const newDatasets = datasets.filter((d) => d.id !== datasetId);
     setDatasets(newDatasets);
 
-    if (currentDatasetId === id) {
+    if (currentDatasetId === datasetId) {
       setCurrentDatasetId(newDatasets.length > 0 ? newDatasets[0].id : null);
       if (newDatasets.length === 0) {
         setChartData(null);
@@ -272,11 +285,17 @@ const App = () => {
     }
 
     try {
-      await axios.delete(`/api/datasets/${id}`);
-      message.success("数据集删除成功");
+      message.loading({ content: "正在删除数据集...", key: msgKey, duration: 0 });
+      const res = await axios.delete(`/api/datasets/${datasetId}`, { timeout: 15000 });
+      if (res?.status === 202) {
+        message.success({ content: "已开始删除，后台处理中", key: msgKey, duration: 2 });
+      } else {
+        message.success({ content: "数据集删除成功", key: msgKey, duration: 2 });
+      }
+      fetchDatasets();
     } catch (error) {
       console.error(error);
-      message.error("删除数据集失败");
+      message.error({ content: "删除数据集失败", key: msgKey, duration: 2 });
       // Rollback
       setDatasets(prevDatasets);
       setCurrentDatasetId(prevCurrentId);
@@ -288,16 +307,41 @@ const App = () => {
   const fetchDatasets = async (signal) => {
     try {
       const res = await axios.get("/api/datasets", { signal });
-      setDatasets(res.data);
-      if (res.data.length > 0 && !currentDatasetId) {
-        setCurrentDatasetId(res.data[0].id);
+      const list = Array.isArray(res?.data) ? res.data : [];
+      const normalized = list
+        .map((d) => {
+          const rawId = d?.id;
+          const idNum = typeof rawId === "string" ? Number(rawId) : rawId;
+          return {
+            ...d,
+            id: idNum,
+          };
+        })
+        .filter((d) => d?.id !== null && d?.id !== undefined && !Number.isNaN(d.id));
+
+      setDatasets(normalized);
+
+      if (normalized.length === 0) {
+        if (currentDatasetId !== null) setCurrentDatasetId(null);
+        return true;
+      }
+
+      const currentIdNum =
+        typeof currentDatasetId === "string" ? Number(currentDatasetId) : currentDatasetId;
+      const hasCurrent =
+        currentIdNum !== null &&
+        currentIdNum !== undefined &&
+        !Number.isNaN(currentIdNum) &&
+        normalized.some((d) => d.id === currentIdNum);
+
+      if (!hasCurrent) {
+        setCurrentDatasetId(normalized[0].id);
       }
       return true;
     } catch (error) {
-      if (!axios.isCancel(error)) {
-        // Quiet fail if no backend or empty
-        console.error("Fetch datasets failed", error);
-      }
+      if (axios.isCancel(error)) return null;
+
+      console.error("Fetch datasets failed", error);
       return false;
     } finally {
       setIsInitLoading(false);
@@ -903,42 +947,49 @@ const App = () => {
               </div>
             </>
           ) : (
-            <div className="mt-10 py-20 px-6 text-center bg-white rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center justify-center min-h-[500px]">
-              <Empty
-                image="https://gw.alipayobjects.com/zos/antfincdn/ZHrcdLPrvN/empty.svg"
-                imageStyle={{ height: 200, marginBottom: 24 }}
-                description={
-                  <div className="max-w-md mx-auto">
-                    <h2 className="text-2xl font-bold text-gray-800 mb-4">暂无数据可视化</h2>
-                    <p className="text-gray-500 mb-8 leading-relaxed">
-                      请从顶部工具栏选择已有的数据集，或上传新的 CSV 文件以开始分析。
-                      <br />
-                      支持时间序列数据的自动解析与交互式图表展示。
-                    </p>
-                  </div>
-                }
-              >
-                <Space size="middle">
-                  <Button
-                    type="primary"
-                    size="large"
-                    icon={<UploadOutlined />}
-                    onClick={() => document.querySelector(".ant-upload input").click()}
-                    className="h-12 px-8 rounded-full text-base shadow-lg shadow-blue-500/30"
-                  >
-                    上传 CSV 数据
-                  </Button>
-                  {datasets.length > 0 && (
+            <div className="flex flex-col justify-center min-h-[calc(100vh-120px)]">
+              <div className="py-20 px-6 text-center bg-white rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center justify-center min-h-[500px]">
+                <Empty
+                  image="https://gw.alipayobjects.com/zos/antfincdn/ZHrcdLPrvN/empty.svg"
+                  imageStyle={{
+                    height: 200,
+                    marginBottom: 24,
+                    display: "flex",
+                    justifyContent: "center",
+                  }}
+                  description={
+                    <div className="max-w-md mx-auto">
+                      <h2 className="text-2xl font-bold text-gray-800 mb-4">暂无数据可视化</h2>
+                      <p className="text-gray-500 mb-8 leading-relaxed">
+                        请从顶部工具栏选择已有的数据集，或上传新的 CSV 文件以开始分析。
+                        <br />
+                        支持时间序列数据的自动解析与交互式图表展示。
+                      </p>
+                    </div>
+                  }
+                >
+                  <Space size="middle">
                     <Button
+                      type="primary"
                       size="large"
-                      onClick={() => setCurrentDatasetId(datasets[0].id)}
-                      className="h-12 px-8 rounded-full text-base"
+                      icon={<UploadOutlined />}
+                      onClick={() => document.querySelector(".ant-upload input").click()}
+                      className="h-12 px-8 rounded-full text-base shadow-lg shadow-blue-500/30"
                     >
-                      查看最新数据
+                      上传 CSV 数据
                     </Button>
-                  )}
-                </Space>
-              </Empty>
+                    {datasets.length > 0 && (
+                      <Button
+                        size="large"
+                        onClick={() => setCurrentDatasetId(datasets[0].id)}
+                        className="h-12 px-8 rounded-full text-base"
+                      >
+                        查看最新数据
+                      </Button>
+                    )}
+                  </Space>
+                </Empty>
+              </div>
             </div>
           )}
 
