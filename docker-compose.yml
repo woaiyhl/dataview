@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  backend:
+    build: 
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: dataview-backend
+    restart: always
+    volumes:
+      - ./data:/app/data
+    environment:
+      - FLASK_ENV=production
+      - DATA_DIR=/app/data
+    # 不暴露端口到宿主机，只在内部网络暴露给前端（Nginx）
+    # ports:
+    #   - "5001:5000"
+
+  frontend:
+    build: 
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: dataview-frontend
+    restart: always
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend

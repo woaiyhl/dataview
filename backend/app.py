@@ -14,12 +14,13 @@ CORS(app)
 
 # Config
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
-TEMP_DIR = os.path.join(BASE_DIR, 'temp_chunks')
-UPLOAD_DIR = os.path.join(BASE_DIR, 'uploads')
+DATA_DIR = os.environ.get('DATA_DIR', BASE_DIR)
+TEMP_DIR = os.path.join(DATA_DIR, 'temp_chunks')
+UPLOAD_DIR = os.path.join(DATA_DIR, 'uploads')
 os.makedirs(TEMP_DIR, exist_ok=True)
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(BASE_DIR, 'dataview.db')
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(DATA_DIR, 'dataview.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['MAX_CONTENT_LENGTH'] = 1024 * 1024 * 1024 * 5  # 5GB max upload
 app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
