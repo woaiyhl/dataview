@@ -17,7 +17,7 @@ trap cleanup SIGINT SIGTERM
 
 # 启动后端
 echo -e "${GREEN}1. 启动 Backend (Flask)...${NC}"
-(cd backend && python3 app.py) &
+(cd backend && /usr/bin/python3 app.py) &
 BACKEND_PID=$!
 
 # 等待几秒确保后端初始化

@@ -422,7 +422,9 @@ const App = () => {
 
     try {
       // 1. Check uploaded chunks
-      const checkRes = await axios.get(`/api/upload/check?uploadId=${uploadId}`);
+      const checkRes = await axios.get("/api/upload/check", {
+        params: { uploadId },
+      });
       const uploadedChunks = new Set(checkRes.data.uploadedChunks);
 
       // Update initial progress

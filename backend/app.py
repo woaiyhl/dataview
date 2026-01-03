@@ -187,7 +187,8 @@ def check_chunks():
     if os.path.exists(chunk_dir):
         try:
             uploaded_chunks = [int(f) for f in os.listdir(chunk_dir) if f.isdigit()]
-        except:
+        except Exception as e:
+            print(f"Error checking chunks for {upload_id}: {e}")
             pass
             
     return jsonify({'uploadedChunks': uploaded_chunks})
