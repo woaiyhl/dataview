@@ -45,6 +45,7 @@ import ChartPanel from "./components/ChartPanel";
 import AnnotationTable from "./components/AnnotationTable";
 import AnnotationModal from "./components/AnnotationModal";
 import ContextMenu from "./components/ContextMenu";
+import { themeConfig } from "./theme";
 
 const { Header, Content } = Layout;
 const { Option } = Select;
@@ -82,9 +83,9 @@ const App = () => {
   const [themeColor, setThemeColor] = useState(() => {
     try {
       const stored = localStorage.getItem("app_theme_color");
-      return stored || "#1890ff";
+      return stored || "#3E513E";
     } catch (e) {
-      return "#1890ff";
+      return "#3E513E";
     }
   });
 
@@ -828,13 +829,14 @@ const App = () => {
     <ConfigProvider
       locale={zhCN}
       theme={{
+        ...themeConfig,
         token: {
+          ...themeConfig.token,
           colorPrimary: themeColor,
-          borderRadius: 8,
         },
       }}
     >
-      <Layout className="min-h-screen bg-gray-100">
+      <Layout className="h-screen overflow-hidden bg-[#F9F8F4]">
         <HeaderBar
           themeColor={themeColor}
           setThemeColor={setThemeColor}
@@ -846,174 +848,182 @@ const App = () => {
           uploading={uploading}
           uploadProgress={uploadProgress}
         />
-        <Content className="p-4 max-w-[1600px] mx-auto w-full transition-all duration-300">
-          {isInitLoading ? (
-            <FullPageSkeleton />
-          ) : currentDatasetId ? (
-            <>
-              <Card className="mb-6 shadow-md rounded-xl border-none" bordered={false}>
-                <Row gutter={24} align="middle">
-                  <Col span={12}>
-                    <RangePicker
-                      showTime
-                      onChange={(dates) => setDateRange(dates)}
-                      className="w-full"
-                      placeholder={["开始日期", "结束日期"]}
-                    />
-                  </Col>
-                  <Col span={12} className="text-right">
-                    <span className="text-gray-400 text-sm font-mono bg-gray-50 px-2 py-1 rounded-full border border-gray-100">
-                      ID: {currentDatasetId}
-                    </span>
-                  </Col>
-                </Row>
-              </Card>
-
-              {currentDataset && currentDataset.status === "failed" ? (
-                <Empty
-                  description={<span style={{ color: "red" }}>数据处理失败，请检查文件格式。</span>}
-                />
-              ) : currentDataset &&
-                (currentDataset.status === "pending" || currentDataset.status === "processing") ? (
-                <ChartAreaSkeleton />
-              ) : (
-                <ChartPanel
-                  loading={loading}
-                  option={chartOption}
-                  chartRef={chartRef}
-                  onChartEvents={onChartEvents}
-                  stats={stats}
-                  selectedMetric={selectedMetric}
-                  setSelectedMetric={setSelectedMetric}
-                  annotateMode={annotateMode}
-                  setAnnotateMode={setAnnotateMode}
-                  fullscreen={fullscreen}
-                  setFullscreen={setFullscreen}
-                  handleSaveImage={handleSaveImage}
-                  handleToggleFullscreen={handleToggleFullscreen}
-                  yMin={yMin}
-                  yMax={yMax}
-                  setYMin={setYMin}
-                  setYMax={setYMax}
-                  handleResetYAxis={handleResetYAxis}
-                  scrollToTable={scrollToTable}
-                  themeColor={themeColor}
-                  chartType={chartType}
-                  setChartType={setChartType}
-                />
-              )}
-
-              <AnnotationTable
-                annotations={annotations}
-                selections={selectionRanges}
-                zoomToRange={zoomToRange}
-                setEditingAnnotation={setEditingAnnotation}
-                annotationForm={annotationForm}
-                setAnnotationModalVisible={setAnnotationModalVisible}
-                handleDeleteAnnotation={handleDeleteAnnotation}
-                tableRef={tableRef}
-                onCreateFromSelection={(sel) => {
-                  setCurrentBrushRange([sel.start_time, sel.end_time]);
-                  setAnnotationModalVisible(true);
-                }}
-                onRemoveSelection={(sel) => {
-                  setSelectionRanges((prev) =>
-                    prev.filter(
-                      (s) => !(s.start_time === sel.start_time && s.end_time === sel.end_time),
-                    ),
-                  );
-                }}
-              />
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-6 mb-6">
-                {stats.map((s, idx) => (
-                  <Card
-                    key={idx}
-                    size="small"
-                    title={<span className="text-gray-600 font-medium">{s.metric}</span>}
-                    className="shadow-md rounded-xl border-none"
-                    bordered={false}
-                  >
-                    <Statistic
-                      title={<span className="text-xs text-gray-400">平均值</span>}
-                      value={s.avg}
-                      precision={2}
-                      valueStyle={{ fontWeight: 600, color: themeColor }}
-                    />
-                    <div className="flex justify-between mt-3 pt-3 border-t border-gray-50 text-xs text-gray-500">
-                      <span className="font-mono">Min: {s.min}</span>
-                      <span className="font-mono">Max: {s.max}</span>
-                    </div>
-                  </Card>
-                ))}
-              </div>
-            </>
-          ) : (
-            <div className="flex flex-col justify-center min-h-[calc(100vh-120px)]">
-              <div className="py-20 px-6 text-center bg-white rounded-xl shadow-md border-none flex flex-col items-center justify-center min-h-[500px]">
-                <Empty
-                  image="https://gw.alipayobjects.com/zos/antfincdn/ZHrcdLPrvN/empty.svg"
-                  imageStyle={{
-                    height: 200,
-                    marginBottom: 24,
-                    display: "flex",
-                    justifyContent: "center",
-                  }}
-                  description={
-                    <div className="max-w-md mx-auto">
-                      <h2 className="text-2xl font-bold text-gray-800 mb-4">暂无数据可视化</h2>
-                      <p className="text-gray-500 mb-8 leading-relaxed">
-                        请从顶部工具栏选择已有的数据集，或上传新的 CSV 文件以开始分析。
-                        <br />
-                        支持时间序列数据的自动解析与交互式图表展示。
-                      </p>
-                    </div>
-                  }
+        <Content className="overflow-y-auto">
+          <div className="p-6 max-w-[1440px] mx-auto w-full transition-all duration-300">
+            {isInitLoading ? (
+              <FullPageSkeleton />
+            ) : currentDatasetId ? (
+              <div className="space-y-6">
+                <Card
+                  className="shadow-sm hover:shadow-md transition-shadow duration-300 rounded-2xl border border-gray-100"
+                  bordered={false}
                 >
-                  <Space size="middle">
-                    <Button
-                      type="primary"
-                      size="large"
-                      icon={<UploadOutlined />}
-                      onClick={() => document.querySelector(".ant-upload input").click()}
-                      className="h-12 px-8 rounded-full text-base shadow-lg shadow-blue-500/30"
+                  <Row gutter={24} align="middle">
+                    <Col span={12}>
+                      <RangePicker
+                        showTime
+                        onChange={(dates) => setDateRange(dates)}
+                        className="w-full"
+                        placeholder={["开始日期", "结束日期"]}
+                      />
+                    </Col>
+                    <Col span={12} className="text-right">
+                      <span className="text-gray-400 text-sm font-mono bg-gray-50 px-2 py-1 rounded-full border border-gray-100">
+                        ID: {currentDatasetId}
+                      </span>
+                    </Col>
+                  </Row>
+                </Card>
+
+                {currentDataset && currentDataset.status === "failed" ? (
+                  <Empty
+                    description={
+                      <span style={{ color: "red" }}>数据处理失败，请检查文件格式。</span>
+                    }
+                  />
+                ) : currentDataset &&
+                  (currentDataset.status === "pending" ||
+                    currentDataset.status === "processing") ? (
+                  <ChartAreaSkeleton />
+                ) : (
+                  <ChartPanel
+                    loading={loading}
+                    option={chartOption}
+                    chartRef={chartRef}
+                    onChartEvents={onChartEvents}
+                    stats={stats}
+                    selectedMetric={selectedMetric}
+                    setSelectedMetric={setSelectedMetric}
+                    annotateMode={annotateMode}
+                    setAnnotateMode={setAnnotateMode}
+                    fullscreen={fullscreen}
+                    setFullscreen={setFullscreen}
+                    handleSaveImage={handleSaveImage}
+                    handleToggleFullscreen={handleToggleFullscreen}
+                    yMin={yMin}
+                    yMax={yMax}
+                    setYMin={setYMin}
+                    setYMax={setYMax}
+                    handleResetYAxis={handleResetYAxis}
+                    scrollToTable={scrollToTable}
+                    themeColor={themeColor}
+                    chartType={chartType}
+                    setChartType={setChartType}
+                  />
+                )}
+
+                <AnnotationTable
+                  annotations={annotations}
+                  selections={selectionRanges}
+                  zoomToRange={zoomToRange}
+                  setEditingAnnotation={setEditingAnnotation}
+                  annotationForm={annotationForm}
+                  setAnnotationModalVisible={setAnnotationModalVisible}
+                  handleDeleteAnnotation={handleDeleteAnnotation}
+                  tableRef={tableRef}
+                  onCreateFromSelection={(sel) => {
+                    setCurrentBrushRange([sel.start_time, sel.end_time]);
+                    setAnnotationModalVisible(true);
+                  }}
+                  onRemoveSelection={(sel) => {
+                    setSelectionRanges((prev) =>
+                      prev.filter(
+                        (s) => !(s.start_time === sel.start_time && s.end_time === sel.end_time),
+                      ),
+                    );
+                  }}
+                />
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                  {stats.map((s, idx) => (
+                    <Card
+                      key={idx}
+                      size="small"
+                      title={<span className="text-gray-600 font-medium">{s.metric}</span>}
+                      className="shadow-sm hover:shadow-md transition-all duration-300 rounded-2xl border border-gray-100"
+                      bordered={false}
                     >
-                      上传 CSV 数据
-                    </Button>
-                    {datasets.length > 0 && (
-                      <Button
-                        size="large"
-                        onClick={() => setCurrentDatasetId(datasets[0].id)}
-                        className="h-12 px-8 rounded-full text-base"
-                      >
-                        查看最新数据
-                      </Button>
-                    )}
-                  </Space>
-                </Empty>
+                      <Statistic
+                        title={<span className="text-xs text-gray-400">平均值</span>}
+                        value={s.avg}
+                        precision={2}
+                        valueStyle={{ fontWeight: 600, color: themeColor }}
+                      />
+                      <div className="flex justify-between mt-3 pt-3 border-t border-gray-50 text-xs text-gray-500">
+                        <span className="font-mono">Min: {s.min}</span>
+                        <span className="font-mono">Max: {s.max}</span>
+                      </div>
+                    </Card>
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
+            ) : (
+              <div className="flex flex-col justify-center min-h-[calc(100vh-120px)]">
+                <div className="py-20 px-6 text-center bg-white rounded-xl shadow-md border-none flex flex-col items-center justify-center min-h-[500px]">
+                  <Empty
+                    image="https://gw.alipayobjects.com/zos/antfincdn/ZHrcdLPrvN/empty.svg"
+                    imageStyle={{
+                      height: 200,
+                      marginBottom: 24,
+                      display: "flex",
+                      justifyContent: "center",
+                    }}
+                    description={
+                      <div className="max-w-md mx-auto">
+                        <h2 className="text-2xl font-bold text-gray-800 mb-4">暂无数据可视化</h2>
+                        <p className="text-gray-500 mb-8 leading-relaxed">
+                          请从顶部工具栏选择已有的数据集，或上传新的 CSV 文件以开始分析。
+                          <br />
+                          支持时间序列数据的自动解析与交互式图表展示。
+                        </p>
+                      </div>
+                    }
+                  >
+                    <Space size="middle">
+                      <Button
+                        type="primary"
+                        size="large"
+                        icon={<UploadOutlined />}
+                        onClick={() => document.querySelector(".ant-upload input").click()}
+                        className="h-12 px-8 rounded-full text-base shadow-lg shadow-blue-500/30"
+                      >
+                        上传 CSV 数据
+                      </Button>
+                      {datasets.length > 0 && (
+                        <Button
+                          size="large"
+                          onClick={() => setCurrentDatasetId(datasets[0].id)}
+                          className="h-12 px-8 rounded-full text-base"
+                        >
+                          查看最新数据
+                        </Button>
+                      )}
+                    </Space>
+                  </Empty>
+                </div>
+              </div>
+            )}
 
-          <ContextMenu
-            contextMenu={{ ...contextMenu, currentBrushRange: currentBrushRange }}
-            handleDownloadRange={handleDownloadRange}
-            setContextMenu={setContextMenu}
-            handleDeleteAnnotation={handleDeleteAnnotation}
-            handleMouseEnter={handleMouseEnter}
-            handleMouseLeave={handleMouseLeave}
-            setEditingAnnotation={setEditingAnnotation}
-            annotationForm={annotationForm}
-            setAnnotationModalVisible={setAnnotationModalVisible}
-          />
+            <ContextMenu
+              contextMenu={{ ...contextMenu, currentBrushRange: currentBrushRange }}
+              handleDownloadRange={handleDownloadRange}
+              setContextMenu={setContextMenu}
+              handleDeleteAnnotation={handleDeleteAnnotation}
+              handleMouseEnter={handleMouseEnter}
+              handleMouseLeave={handleMouseLeave}
+              setEditingAnnotation={setEditingAnnotation}
+              annotationForm={annotationForm}
+              setAnnotationModalVisible={setAnnotationModalVisible}
+            />
 
-          <AnnotationModal
-            editingAnnotation={editingAnnotation}
-            visible={annotationModalVisible}
-            setVisible={setAnnotationModalVisible}
-            annotationForm={annotationForm}
-            handleSaveAnnotation={handleSaveAnnotation}
-          />
+            <AnnotationModal
+              editingAnnotation={editingAnnotation}
+              visible={annotationModalVisible}
+              setVisible={setAnnotationModalVisible}
+              annotationForm={annotationForm}
+              handleSaveAnnotation={handleSaveAnnotation}
+            />
+          </div>
         </Content>
       </Layout>
     </ConfigProvider>

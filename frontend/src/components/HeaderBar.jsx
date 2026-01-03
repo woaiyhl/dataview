@@ -24,6 +24,8 @@ const { Header } = Layout;
 
 // 辅助函数：根据背景色计算文本颜色（黑/白）以保证对比度
 const getContrastColor = (hexColor) => {
+  // 森林绿主题下，强制使用白色文字
+  if (hexColor === "#3E513E") return "#ffffff";
   if (!hexColor || !hexColor.startsWith("#")) return "#ffffff";
   const r = parseInt(hexColor.substr(1, 2), 16);
   const g = parseInt(hexColor.substr(3, 2), 16);
@@ -56,20 +58,29 @@ export default function HeaderBar({
           key: d.id,
           label: (
             <div
-              className="flex items-center justify-between min-w-[240px] py-1 group"
+              className="flex items-center justify-between min-w-[240px] py-2 px-1 group"
               onClick={() => setCurrentDatasetId(d.id)}
             >
-              <div className="flex items-center gap-2 overflow-hidden mr-4">
-                <DatabaseOutlined
-                  className={`${d.id === currentDatasetId ? "text-blue-500" : "text-gray-400"}`}
-                />
-                <span
-                  className={`truncate font-medium ${
-                    d.id === currentDatasetId ? "text-blue-600" : "text-gray-700"
+              <div className="flex items-center gap-3 overflow-hidden mr-4">
+                <div
+                  className={`p-1.5 rounded-lg ${
+                    d.id === currentDatasetId ? "bg-blue-50" : "bg-gray-50 group-hover:bg-gray-100"
                   }`}
                 >
-                  {d.filename}
-                </span>
+                  <DatabaseOutlined
+                    className={`${d.id === currentDatasetId ? "text-blue-500" : "text-gray-400"}`}
+                  />
+                </div>
+                <div className="flex flex-col">
+                  <span
+                    className={`truncate font-medium text-sm ${
+                      d.id === currentDatasetId ? "text-gray-900" : "text-gray-700"
+                    }`}
+                  >
+                    {d.filename}
+                  </span>
+                  <span className="text-xs text-gray-400">ID: {d.id}</span>
+                </div>
               </div>
 
               <div className="flex items-center">
@@ -81,7 +92,7 @@ export default function HeaderBar({
                   size="small"
                   danger
                   icon={<DeleteOutlined />}
-                  className="opacity-0 group-hover:opacity-100 transition-opacity"
+                  className="opacity-0 group-hover:opacity-100 transition-opacity bg-red-50 hover:bg-red-100 text-red-500"
                   onClick={(e) => {
                     e.stopPropagation();
                     Modal.confirm({
@@ -91,6 +102,7 @@ export default function HeaderBar({
                       okText: "确定删除",
                       okType: "danger",
                       cancelText: "取消",
+                      centered: true,
                       onOk() {
                         handleDeleteDataset(null, d.id);
                       },
@@ -104,118 +116,108 @@ export default function HeaderBar({
       : [
           {
             key: "empty",
-            label: (
-              <Empty
-                image={Empty.PRESENTED_IMAGE_SIMPLE}
-                description="暂无数据集"
-                className="py-2"
-              />
-            ),
+            label: <span className="text-gray-400 px-2">暂无数据集</span>,
             disabled: true,
           },
         ];
 
   return (
     <Header
-      className="flex items-center justify-between px-6 sticky top-0 z-[1000] w-full shadow-md transition-all duration-300 backdrop-blur-md"
+      className="z-50 w-full backdrop-blur-md bg-white/80 border-b border-gray-100/50"
       style={{
-        background: themeColor,
+        padding: "0 24px",
         height: "64px",
-        borderBottom: `1px solid ${isLight ? "rgba(0,0,0,0.06)" : "rgba(255,255,255,0.1)"}`,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        boxShadow: "0 1px 2px 0 rgba(0, 0, 0, 0.03)",
       }}
     >
-      {/* Left: Logo & Theme */}
       <div className="flex items-center gap-6">
-        <div
-          className="flex items-center gap-3 text-xl font-bold tracking-tight cursor-default select-none"
-          style={{ color: textColor }}
-        >
+        <div className="flex items-center gap-3">
           <div
-            className={`flex items-center justify-center w-8 h-8 rounded-lg ${
-              isLight ? "bg-black/5" : "bg-white/10"
-            }`}
+            className="w-8 h-8 rounded-lg flex items-center justify-center shadow-sm"
+            style={{ background: `linear-gradient(135deg, ${themeColor}, ${themeColor}dd)` }}
           >
-            <BarChartOutlined className="" />
+            <BarChartOutlined className="text-white text-lg" />
           </div>
-          <span className="font-sans">时序数据可视化</span>
+          <span className="text-lg font-bold bg-clip-text text-transparent bg-gradient-to-r from-gray-800 to-gray-600 tracking-tight">
+            DataView Pro
+          </span>
         </div>
 
-        <div className="h-6 w-px bg-current opacity-10" style={{ color: textColor }} />
+        <div className="h-6 w-px bg-gray-200 mx-2" />
 
-        {/* Dataset Switcher - Redesigned */}
         <Dropdown
-          menu={{ items, className: "max-h-[400px] overflow-y-auto rounded-xl p-2 shadow-xl" }}
+          menu={{
+            items,
+            style: {
+              maxHeight: "400px",
+              overflowY: "auto",
+              padding: "8px",
+              borderRadius: "12px",
+              boxShadow: "0 10px 30px -10px rgba(0,0,0,0.1)",
+            },
+          }}
           trigger={["click"]}
           placement="bottomLeft"
         >
           <Button
             type="text"
-            className={`flex items-center gap-2 px-3 h-9 transition-all duration-200 hover:bg-black/5 ${
-              !isLight && "hover:bg-white/10"
-            }`}
-            style={{ color: textColor }}
+            className="flex items-center gap-2 px-3 py-1.5 h-auto hover:bg-gray-100/50 rounded-lg transition-all"
           >
-            <DatabaseOutlined className="opacity-70" />
-            <span className="font-medium max-w-[200px] truncate">
-              {currentDataset ? currentDataset.filename : "选择数据集"}
+            <span className="text-gray-500 text-xs uppercase font-semibold tracking-wider">
+              数据集
             </span>
-            <DownOutlined className="text-xs opacity-50 ml-1" />
+            <span className="font-medium text-gray-700 max-w-[200px] truncate">
+              {currentDataset ? currentDataset.filename : "选择数据..."}
+            </span>
+            <DownOutlined className="text-xs text-gray-400" />
           </Button>
         </Dropdown>
       </div>
 
-      {/* Right: Actions */}
       <div className="flex items-center gap-4">
-        {/* Upload Progress */}
-        {uploading && (
-          <div className="flex flex-col items-end gap-0.5 w-40 animate-pulse">
-            <div
-              className="flex justify-between w-full text-[10px] font-medium opacity-80"
-              style={{ color: textColor }}
-            >
-              <span>上传中...</span>
-              <span>{uploadProgress}%</span>
-            </div>
-            <Progress
-              percent={uploadProgress}
-              size="small"
-              showInfo={false}
-              strokeColor={isLight ? themeColor : "#fff"}
-              trailColor={isLight ? "rgba(0,0,0,0.1)" : "rgba(255,255,255,0.2)"}
-              className="m-0 leading-none"
-            />
+        {datasets.length > 0 && (
+          <div className="hidden md:flex items-center text-xs text-gray-400 bg-gray-50 px-3 py-1.5 rounded-full border border-gray-100">
+            <DatabaseOutlined className="mr-2" />
+            <span>{datasets.length} 个文件</span>
           </div>
         )}
 
-        {/* Upload Button */}
-        <Upload customRequest={handleUpload} showUploadList={false} disabled={uploading}>
-          <Tooltip title="上传新的 CSV 数据文件">
+        <div className="flex items-center gap-2 pl-4 border-l border-gray-100">
+          <Tooltip title="切换主题色">
+            <div className="hover:scale-110 transition-transform">
+              <ColorPicker
+                value={themeColor}
+                onChange={(c) => setThemeColor(c.toHexString())}
+                size="small"
+                trigger="hover"
+              />
+            </div>
+          </Tooltip>
+
+          <Upload
+            accept=".csv"
+            showUploadList={false}
+            beforeUpload={() => false}
+            onChange={handleUpload}
+            maxCount={1}
+            disabled={uploading}
+          >
             <Button
               type="primary"
-              icon={uploading ? null : <CloudUploadOutlined />}
+              icon={uploading ? <span className="animate-spin">⟳</span> : <CloudUploadOutlined />}
               loading={uploading}
-              className={`
-                border-none shadow-none font-medium h-9 px-4 rounded-full flex items-center gap-2
-                ${
-                  isLight
-                    ? "bg-black text-white hover:bg-gray-800"
-                    : "bg-white text-gray-900 hover:bg-gray-100"
-                }
-              `}
+              className="h-9 px-5 rounded-lg shadow-sm hover:shadow-md transition-all font-medium"
+              style={{
+                backgroundColor: themeColor,
+                borderColor: themeColor,
+              }}
             >
-              {uploading ? "处理中..." : "上传数据"}
+              {uploading ? <span className="ml-1">{Math.round(uploadProgress)}%</span> : "上传数据"}
             </Button>
-          </Tooltip>
-        </Upload>
-
-        {/* Theme Picker */}
-        <div className="flex items-center">
-          <ColorPicker
-            value={themeColor}
-            onChange={(c) => setThemeColor(c.toHexString())}
-            format="hex"
-            size="small"
-          />
+          </Upload>
         </div>
       </div>
     </Header>

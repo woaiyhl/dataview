@@ -92,55 +92,64 @@ export default function AnnotationTable({
                 size="small"
                 type="primary"
                 icon={<PlusOutlined />}
+                className="rounded-lg text-xs"
                 onClick={() => onCreateFromSelection(r)}
               >
                 添加
               </Button>
               <Button
                 size="small"
-                type="text"
                 danger
+                type="text"
                 icon={<CloseOutlined />}
+                className="rounded-lg text-xs hover:bg-red-50"
                 onClick={() => onRemoveSelection(r)}
               >
-                丢弃
+                忽略
               </Button>
             </>
           ) : (
             <>
-              <Button
-                size="small"
-                type="text"
-                icon={<EditOutlined />}
-                className="text-blue-600 hover:bg-blue-50"
-                onClick={() => {
-                  setEditingAnnotation(r);
-                  annotationForm.setFieldsValue({
-                    content: r.content,
-                    status: r.status,
-                    color: r.color,
-                  });
-                  setAnnotationModalVisible(true);
-                }}
-              >
-                编辑
-              </Button>
+              <Tooltip title="定位">
+                <Button
+                  size="small"
+                  type="text"
+                  icon={<div className="text-blue-500">⌖</div>}
+                  className="rounded-lg hover:bg-blue-50"
+                  onClick={() => zoomToRange(r.start_time, r.end_time)}
+                />
+              </Tooltip>
+              <Tooltip title="编辑">
+                <Button
+                  size="small"
+                  type="text"
+                  icon={<EditOutlined className="text-gray-500" />}
+                  className="rounded-lg hover:bg-gray-100"
+                  onClick={() => {
+                    setEditingAnnotation(r);
+                    annotationForm.setFieldsValue({
+                      ...r,
+                      range: [dayjs(r.start_time), dayjs(r.end_time)],
+                    });
+                    setAnnotationModalVisible(true);
+                  }}
+                />
+              </Tooltip>
               <Popconfirm
-                title="确定删除该标注？"
+                title="删除标注"
+                description="确定要删除这条标注记录吗？"
                 onConfirm={() => handleDeleteAnnotation(r.id)}
                 okText="删除"
                 cancelText="取消"
-                okType="danger"
+                okButtonProps={{ danger: true }}
               >
                 <Button
                   size="small"
                   type="text"
                   danger
                   icon={<DeleteOutlined />}
-                  className="hover:bg-red-50"
-                >
-                  删除
-                </Button>
+                  className="rounded-lg hover:bg-red-50"
+                />
               </Popconfirm>
             </>
           )}
@@ -151,26 +160,36 @@ export default function AnnotationTable({
 
   return (
     <Card
-      title={
-        <span className="font-bold text-gray-800 text-lg">
-          标注列表 <span className="text-gray-400 text-sm font-normal ml-2">{rows.length} 项</span>
-        </span>
-      }
-      className="mt-6 shadow-md rounded-xl border-none overflow-hidden"
-      bordered={false}
       ref={tableRef}
+      title={
+        <div className="flex items-center gap-2 py-1">
+          <div className="w-1 h-5 bg-purple-500 rounded-full"></div>
+          <span className="font-bold text-gray-800 text-lg">标注记录</span>
+          <Tag className="ml-2 bg-gray-100 border-none text-gray-500 rounded-full px-3">
+            {annotations.length}
+          </Tag>
+        </div>
+      }
+      bordered={false}
+      className="shadow-sm hover:shadow-md transition-all duration-300 rounded-2xl border border-gray-100"
       bodyStyle={{ padding: 0 }}
     >
       <Table
-        rowKey={(r) => r.id}
         dataSource={rows}
-        pagination={{ pageSize: 8, hideOnSinglePage: true, className: "px-6 py-4" }}
         columns={columns}
+        rowKey="id"
+        pagination={{
+          pageSize: 5,
+          showTotal: (total) => `共 ${total} 条`,
+          className: "px-6 pb-4",
+        }}
         onRow={(record) => ({
           onClick: () => {
-            if (zoomToRange) zoomToRange(record.start_time, record.end_time);
+            if (!record._isSelection) {
+              zoomToRange(record.start_time, record.end_time);
+            }
           },
-          className: "cursor-pointer hover:bg-blue-50/30 transition-colors group",
+          className: "cursor-pointer hover:bg-gray-50/80 transition-colors",
         })}
       />
     </Card>

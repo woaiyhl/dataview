@@ -7,15 +7,20 @@ export default {
   theme: {
     extend: {
       colors: {
-        primary: '#1890ff',
-        secondary: '#52c41a',
-        background: '#f0f2f5',
-        surface: '#ffffff',
+        primary: '#3E513E', // Forest Green
+        secondary: '#A8BFA8', // Sage Green
+        accent: '#D4C5A9', // Sand/Gold
+        background: '#F9F8F4', // Cream/Beige
+        surface: '#FFFFFF',
         text: {
-          primary: '#333333',
-          secondary: '#666666',
-          tertiary: '#999999',
+          primary: '#2C3E2C', // Dark Green Text
+          secondary: '#5C6F5C',
+          tertiary: '#8A9A8A',
         }
+      },
+      fontFamily: {
+        serif: ['"Playfair Display"', 'serif'],
+        sans: ['"Inter"', 'sans-serif'],
       },
       boxShadow: {
         'card': '0 1px 2px 0 rgba(0, 0, 0, 0.03), 0 1px 6px -1px rgba(0, 0, 0, 0.02), 0 2px 4px 0 rgba(0, 0, 0, 0.02)',

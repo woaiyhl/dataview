@@ -73,26 +73,29 @@ export default function ChartPanel({
   return (
     <Card
       title={
-        <div className="flex items-center gap-4">
-          <span className="font-bold text-gray-800 text-lg">数据可视化</span>
+        <div className="flex items-center gap-4 py-1">
+          <div className="flex items-center gap-2">
+            <div className="w-1 h-5 bg-[#3E513E] rounded-full"></div>
+            <span className="font-serif font-bold text-[#2C3E2C] text-xl">数据可视化</span>
+          </div>
           <Segmented
             options={[
-              { label: "浏览模式", value: false, icon: <EyeOutlined /> },
-              { label: "标注模式", value: true, icon: <EditOutlined /> },
+              { label: "浏览", value: false, icon: <EyeOutlined /> },
+              { label: "标注", value: true, icon: <EditOutlined /> },
             ]}
             value={annotateMode}
             onChange={setAnnotateMode}
-            className="shadow-sm bg-gray-100"
+            className="bg-[#F9F8F4] p-0.5 custom-segmented border border-[#D4C5A9]/30"
           />
         </div>
       }
       bordered={false}
-      className={`shadow-md border-none transition-all duration-300 ${
-        fullscreen ? "fixed inset-0 z-[1000] rounded-none h-screen" : "rounded-xl"
+      className={`shadow-[0_4px_20px_0_rgba(62,81,62,0.05)] hover:shadow-[0_8px_30px_0_rgba(62,81,62,0.1)] transition-all duration-300 border border-[#A8BFA8]/20 ${
+        fullscreen ? "fixed inset-0 z-[1000] rounded-none h-screen" : "rounded-2xl"
       }`}
       bodyStyle={{
         padding: "20px 24px 24px 24px",
-        height: fullscreen ? "calc(100vh - 60px)" : "auto",
+        height: fullscreen ? "calc(100vh - 80px)" : "auto",
         display: "flex",
         flexDirection: "column",
       }}
