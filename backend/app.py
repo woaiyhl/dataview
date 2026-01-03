@@ -317,8 +317,14 @@ def delete_dataset(dataset_id):
 
 @app.route('/api/datasets', methods=['GET'])
 def get_datasets():
-    datasets = Dataset.query.order_by(Dataset.created_at.desc()).all()
-    return jsonify([d.to_dict() for d in datasets])
+    try:
+        datasets = Dataset.query.order_by(Dataset.created_at.desc()).all()
+        return jsonify([d.to_dict() for d in datasets])
+    except Exception as e:
+        print(f"Error getting datasets: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/api/data/<int:dataset_id>', methods=['GET'])
 def get_data(dataset_id):
