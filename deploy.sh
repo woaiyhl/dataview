@@ -20,6 +20,12 @@ echo -e "${GREEN}构建并启动新容器...${NC}"
 # --build 确保重新构建镜像
 docker compose up -d --build
 
+echo -e "${GREEN}等待服务启动 (5s)...${NC}"
+sleep 5
+
+echo -e "${GREEN}初始化数据库...${NC}"
+docker compose exec -T backend python init_db.py
+
 echo -e "${GREEN}清理未使用的镜像...${NC}"
 docker image prune -f
 

@@ -15,6 +15,15 @@ CORS(app)
 # Config
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 DATA_DIR = os.environ.get('DATA_DIR', BASE_DIR)
+
+# Ensure DATA_DIR exists
+if not os.path.exists(DATA_DIR):
+    try:
+        os.makedirs(DATA_DIR, exist_ok=True)
+        print(f"Created DATA_DIR: {DATA_DIR}")
+    except Exception as e:
+        print(f"Error creating DATA_DIR {DATA_DIR}: {e}")
+
 TEMP_DIR = os.path.join(DATA_DIR, 'temp_chunks')
 UPLOAD_DIR = os.path.join(DATA_DIR, 'uploads')
 os.makedirs(TEMP_DIR, exist_ok=True)
