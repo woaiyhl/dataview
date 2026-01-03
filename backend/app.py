@@ -213,8 +213,11 @@ def upload_chunk():
     return jsonify({'status': 'success'})
 
 # Resumable Upload: Merge
-@app.route('/api/upload/merge', methods=['POST'])
+@app.route('/api/upload/merge', methods=['POST', 'GET'])
 def merge_chunks():
+    if request.method == 'GET':
+        return jsonify({'message': 'This endpoint expects POST requests. Please use the application interface to upload files.'}), 405
+        
     data = request.json
     upload_id = data.get('uploadId')
     filename = data.get('filename')
