@@ -17,9 +17,8 @@ jobs:
       - name: Copy files via SCP
         uses: appleboy/scp-action@master
         with:
-          # 建议在 GitHub 仓库 Settings -> Secrets and variables -> Actions 中配置以下 Secrets
-          # 如果不想配置 Secrets，可以直接将 host 替换为您的服务器 IP (如: 47.96.23.187)
-          host: ${{ secrets.REMOTE_HOST }}
+          # 直接填入 IP，或者确保 GitHub Secrets 中配置了 REMOTE_HOST
+          host: "47.96.23.187"
           username: ${{ secrets.REMOTE_USER || 'root' }}
           password: ${{ secrets.REMOTE_PASSWORD }}
           source: "."
@@ -29,7 +28,7 @@ jobs:
       - name: Execute remote deployment
         uses: appleboy/ssh-action@master
         with:
-          host: ${{ secrets.REMOTE_HOST }}
+          host: "47.96.23.187"
           username: ${{ secrets.REMOTE_USER || 'root' }}
           password: ${{ secrets.REMOTE_PASSWORD }}
           script: |
