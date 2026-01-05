@@ -5,9 +5,10 @@ import threading
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
-from datetime import datetime
+from datetime import datetime, timedelta
 from sqlalchemy import event
 from sqlalchemy.engine import Engine
+from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
 CORS(app)
@@ -53,6 +54,18 @@ def _set_sqlite_pragmas(dbapi_connection, connection_record):
         pass
 
 # Models
+class User(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(80), unique=True, nullable=False)
+    password_hash = db.Column(db.String(255), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def set_password(self, password):
+        self.password_hash = generate_password_hash(password)
+
+    def check_password(self, password):
+        return check_password_hash(self.password_hash, password)
+
 class Dataset(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     filename = db.Column(db.String(100), nullable=False)
@@ -184,6 +197,49 @@ def process_csv_task(file_path, dataset_id):
 @app.route('/api/health', methods=['GET'])
 def health():
     return jsonify({'status': 'ok'})
+
+# Auth Routes
+@app.route('/api/auth/register', methods=['POST'])
+def register():
+    try:
+        data = request.json
+        if not data:
+            return jsonify({'error': 'Invalid JSON data'}), 400
+            
+        username = data.get('username')
+        password = data.get('password')
+
+        if not username or not password:
+            return jsonify({'error': '用户名和密码不能为空'}), 400
+
+        if User.query.filter_by(username=username).first():
+            return jsonify({'error': '用户名已存在'}), 400
+
+        user = User(username=username)
+        user.set_password(password)
+        db.session.add(user)
+        db.session.commit()
+        return jsonify({'id': user.id, 'username': user.username}), 201
+    except Exception as e:
+        db.session.rollback()
+        print(f"Registration error: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/auth/login', methods=['POST'])
+def login():
+    data = request.json
+    if not data:
+        return jsonify({'error': 'Invalid JSON data'}), 400
+        
+    username = data.get('username')
+    password = data.get('password')
+
+    user = User.query.filter_by(username=username).first()
+
+    if user and user.check_password(password):
+        return jsonify({'id': user.id, 'username': user.username}), 200
+    
+    return jsonify({'error': '用户名或密码错误'}), 401
 
 # Resumable Upload: Check Chunks
 @app.route('/api/upload/check', methods=['GET'])
@@ -533,7 +589,12 @@ def download_data(dataset_id):
         headers={"Content-disposition": f"attachment; filename=data_{dataset_id}.csv"}
     )
 
+# Initialize DB tables
+with app.app_context():
+    db.create_all()
+
 if __name__ == '__main__':
-    with app.app_context():
-        db.create_all()
-    app.run(debug=True, port=5001)
+    port = int(os.environ.get('PORT', os.environ.get('FLASK_PORT', '5001')))
+    debug_env = os.environ.get('FLASK_DEBUG', '1').lower()
+    debug = debug_env in ('1', 'true', 'yes', 'y', 'on')
+    app.run(debug=debug, port=port)

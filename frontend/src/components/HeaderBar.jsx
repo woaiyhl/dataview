@@ -45,11 +45,26 @@ export default function HeaderBar({
   handleUpload,
   uploading,
   uploadProgress,
+  user,
+  onLogout,
 }) {
   const textColor = getContrastColor(themeColor);
   const isLight = textColor === "#000000";
 
   const currentDataset = datasets.find((d) => d.id === currentDatasetId);
+
+  // 用户菜单项
+  const userMenuItems = [
+    {
+      key: "logout",
+      label: (
+        <span className="text-red-500" onClick={onLogout}>
+          退出登录
+        </span>
+      ),
+      icon: <DeleteOutlined className="text-red-500" />,
+    },
+  ];
 
   // 构建下拉菜单项
   const items =
@@ -218,6 +233,21 @@ export default function HeaderBar({
               {uploading ? <span className="ml-1">{Math.round(uploadProgress)}%</span> : "上传数据"}
             </Button>
           </Upload>
+
+          {user && (
+            <Dropdown menu={{ items: userMenuItems }} placement="bottomRight">
+              <Button
+                type="text"
+                className="flex items-center gap-2 ml-2 pl-4 border-l border-gray-100"
+              >
+                <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-400 to-purple-500 flex items-center justify-center text-white font-bold shadow-sm">
+                  {user.username?.[0]?.toUpperCase()}
+                </div>
+                <span className="hidden md:inline text-gray-700 font-medium">{user.username}</span>
+                <DownOutlined className="text-xs text-gray-400" />
+              </Button>
+            </Dropdown>
+          )}
         </div>
       </div>
     </Header>

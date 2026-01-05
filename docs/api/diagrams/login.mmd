@@ -1,0 +1,41 @@
+%%{init: {
+  "theme": "dark",
+  "themeVariables": {
+    "primaryColor": "#0f172a",
+    "secondaryColor": "#1f2937",
+    "actorBorder": "#22c55e",
+    "actorTextColor": "#e5e7eb",
+    "lineColor": "#94a3b8",
+    "sequenceNumberColor": "#a3e635",
+    "fontFamily": "Inter, PingFang SC, Helvetica, Arial"
+  }
+}}%%
+sequenceDiagram
+participant User as 用户
+participant Frontend as 前端 (React)
+participant API as 后端 API (Flask)
+participant DB as 数据库 (SQLite)
+
+User->>Frontend: 输入用户名/密码并点击登录
+Frontend->>API: POST /api/auth/login
+Note right of Frontend: { username, password }
+
+API->>DB: 根据用户名查询用户
+
+alt 用户不存在
+    DB-->>API: Null
+    API-->>Frontend: 401 Error (Invalid credentials)
+else 用户存在
+    DB-->>API: 返回 User 对象 (含 password_hash)
+    API->>API: check_password_hash(hash, password)
+
+    alt 密码匹配
+        API->>API: jwt.encode(payload, secret)
+        API-->>Frontend: 200 OK { token, user_id }
+        Frontend->>Frontend: localStorage.setItem('user', data)
+        Frontend-->>User: 跳转至仪表盘
+    else 密码错误
+        API-->>Frontend: 401 Error
+        Frontend-->>User: 提示"用户名或密码错误"
+    end
+end

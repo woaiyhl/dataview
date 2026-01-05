@@ -1,0 +1,34 @@
+%%{init: {
+  "theme": "dark",
+  "themeVariables": {
+    "primaryColor": "#0f172a",
+    "secondaryColor": "#1f2937",
+    "actorBorder": "#22c55e",
+    "actorTextColor": "#e5e7eb",
+    "lineColor": "#94a3b8",
+    "sequenceNumberColor": "#a3e635",
+    "fontFamily": "Inter, PingFang SC, Helvetica, Arial"
+  }
+}}%%
+sequenceDiagram
+participant User as 用户
+participant Frontend as 前端 (React)
+participant API as 后端 API (Flask)
+participant DB as 数据库 (SQLite)
+
+User->>Frontend: 输入用户名/密码并点击注册
+Frontend->>API: POST /api/auth/register
+Note right of Frontend: { username, password }
+
+API->>DB: 查询用户名是否存在
+alt 用户名已存在
+    DB-->>API: 返回记录
+    API-->>Frontend: 400 Error (Username exists)
+    Frontend-->>User: 提示"用户名已存在"
+else 用户名可用
+    API->>API: generate_password_hash(password)
+    API->>DB: 插入新用户记录 (含 password_hash)
+    DB-->>API: 确认插入
+    API-->>Frontend: 201 Created
+    Frontend->>API: (自动触发) POST /api/auth/login
+end
