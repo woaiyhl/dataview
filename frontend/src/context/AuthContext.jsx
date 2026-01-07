@@ -36,7 +36,7 @@ export const AuthProvider = ({ children }) => {
 
   const register = async (username, password) => {
     try {
-      await axios.post("/api/auth/register", { username, password });
+      await request.post("/api/auth/register", { username, password });
       // 注册成功后自动登录
       return await login(username, password);
     } catch (error) {

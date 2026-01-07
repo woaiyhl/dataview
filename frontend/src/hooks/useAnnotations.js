@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import axios from "axios";
+import request from "../utils/request";
 import { message } from "antd";
 
 /**
@@ -41,10 +41,10 @@ export const useAnnotations = (currentDatasetId) => {
       };
 
       if (editingAnnotation) {
-        await axios.put(`/api/annotations/${editingAnnotation.id}`, payload);
+        await request.put(`/api/annotations/${editingAnnotation.id}`, payload);
         message.success("标注已更新");
       } else {
-        await axios.post("/api/annotations", {
+        await request.post("/api/annotations", {
           ...payload,
           dataset_id: currentDatasetId,
           start_time: currentBrushRange[0],

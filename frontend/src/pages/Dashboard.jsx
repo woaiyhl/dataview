@@ -1,7 +1,7 @@
 import React, { useRef, useMemo, useState, useEffect } from "react";
 import { Layout, ConfigProvider, Empty, Form, message } from "antd";
 import zhCN from "antd/locale/zh_CN";
-import axios from "axios";
+import request from "../utils/request";
 import "../styles/index.css";
 import { themeConfig } from "../theme";
 

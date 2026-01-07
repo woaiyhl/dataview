@@ -1,5 +1,5 @@
 import { useState } from "react";
-import axios from "axios";
+import request from "../utils/request";
 import { message } from "antd";
 
 const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB
@@ -30,7 +30,7 @@ export const useUpload = (onSuccess, onError) => {
 
     try {
       // 1. Check uploaded chunks
-      const checkRes = await axios.get("/api/upload/check", {
+      const checkRes = await request.get("/api/upload/check", {
         params: { uploadId },
       });
       const uploadedChunks = new Set(checkRes.data.uploadedChunks);
@@ -59,7 +59,7 @@ export const useUpload = (onSuccess, onError) => {
         formData.append("chunkIndex", chunkIndex);
         formData.append("file", chunk);
 
-        await axios.post("/api/upload/chunk", formData, {
+        await request.post("/api/upload/chunk", formData, {
           timeout: 60000, // 60s timeout for each chunk
         });
 
