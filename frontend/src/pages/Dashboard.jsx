@@ -155,18 +155,10 @@ const Dashboard = () => {
         end: end,
         metric: selectedMetric,
       };
-      const response = await axios.get(`/api/download/${currentDatasetId}`, {
+      await request.download(`/api/download/${currentDatasetId}`, {
         params,
-        responseType: "blob",
+        filename: `data_${start}_${end}.csv`,
       });
-
-      const url = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement("a");
-      link.href = url;
-      link.setAttribute("download", `data_${start}_${end}.csv`);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
     } catch (error) {
       console.error(error);
       message.error("下载数据失败");

@@ -43,7 +43,7 @@ trap cleanup SIGINT SIGTERM
 
 # 启动后端（使用与手动相同的 python，避免环境不一致）
 echo -e "${GREEN}1. 启动 Backend (Flask)...${NC}"
-(cd backend && FLASK_PORT="${BACKEND_PORT}" FLASK_DEBUG=0 "${PYTHON_BIN}" app.py) &
+(cd backend && FLASK_PORT="${BACKEND_PORT}" FLASK_DEBUG=0 "${PYTHON_BIN}" run.py) &
 BACKEND_PID=$!
 
 # 等待后端端口就绪，最多 15 秒

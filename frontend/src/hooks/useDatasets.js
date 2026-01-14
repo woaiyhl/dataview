@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import axios from "axios";
 import request from "../utils/request";
 import { message } from "antd";
 
@@ -23,9 +22,9 @@ export const useDatasets = () => {
    */
   const fetchDatasets = async (signal) => {
     try {
-      const res = await axios.get("/api/datasets", { signal });
-      const list = Array.isArray(res?.data) ? res.data : [];
-      const normalized = list
+      const list = await request.getDataWithRetry("/api/datasets", { signal }, { retries: 2 });
+      const normalizedList = Array.isArray(list) ? list : [];
+      const normalized = normalizedList
         .map((d) => {
           const rawId = d?.id;
           const idNum = typeof rawId === "string" ? Number(rawId) : rawId;
@@ -57,7 +56,7 @@ export const useDatasets = () => {
       }
       return true;
     } catch (error) {
-      if (axios.isCancel(error)) return null;
+      if (request.isCanceled?.(error)) return null;
       console.error("Fetch datasets failed", error);
       return false;
     } finally {
@@ -95,7 +94,7 @@ export const useDatasets = () => {
 
     try {
       message.loading({ content: "正在删除数据集...", key: msgKey, duration: 0 });
-      const res = await axios.delete(`/api/datasets/${datasetId}`, { timeout: 15000 });
+      const res = await request.delete(`/api/datasets/${datasetId}`, { timeout: 15000 });
       if (res?.status === 202) {
         message.success({ content: "已开始删除，后台处理中", key: msgKey, duration: 2 });
       } else {

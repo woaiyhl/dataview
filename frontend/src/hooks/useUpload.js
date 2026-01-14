@@ -75,14 +75,14 @@ export const useUpload = (onSuccess, onError) => {
       }
 
       // 3. Merge chunks
-      const mergeRes = await axios.post("/api/upload/merge", {
+      const mergeData = await request.postData("/api/upload/merge", {
         uploadId,
         filename: file.name,
       });
 
       message.success("上传成功，后台处理中...");
       setUploading(false);
-      if (onSuccess) onSuccess(mergeRes.data);
+      if (onSuccess) onSuccess(mergeData);
     } catch (error) {
       console.error(error);
       message.error("上传失败");

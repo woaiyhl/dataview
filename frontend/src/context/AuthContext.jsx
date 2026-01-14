@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
-import axios from "axios";
+import request from "../utils/request";
 
 const AuthContext = createContext(null);
 
@@ -23,8 +23,7 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (username, password) => {
     try {
-      const response = await axios.post("/api/auth/login", { username, password });
-      const userData = response.data;
+      const userData = await request.postData("/api/auth/login", { username, password });
       setUser(userData);
       localStorage.setItem("user", JSON.stringify(userData));
       return userData;
@@ -36,7 +35,7 @@ export const AuthProvider = ({ children }) => {
 
   const register = async (username, password) => {
     try {
-      await request.post("/api/auth/register", { username, password });
+      await request.postData("/api/auth/register", { username, password });
       // 注册成功后自动登录
       return await login(username, password);
     } catch (error) {

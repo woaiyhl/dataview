@@ -20,8 +20,8 @@ export const useAnnotations = (currentDatasetId) => {
    */
   const fetchAnnotations = async (id) => {
     try {
-      const res = await axios.get(`/api/annotations/${id}`);
-      setAnnotations(res.data);
+      const data = await request.getData(`/api/annotations/${id}`);
+      setAnnotations(data);
     } catch (error) {
       console.error("Failed to fetch annotations", error);
     }
@@ -72,7 +72,7 @@ export const useAnnotations = (currentDatasetId) => {
    */
   const handleDeleteAnnotation = async (id) => {
     try {
-      await axios.delete(`/api/annotations/${id}`);
+      await request.delete(`/api/annotations/${id}`);
       message.success("标注已删除");
       fetchAnnotations(currentDatasetId);
     } catch (error) {

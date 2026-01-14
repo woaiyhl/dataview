@@ -1,9 +1,8 @@
 import React, { useState } from 'react';
-import { Form, Input, Button, message, ConfigProvider } from 'antd';
-import { UserOutlined, LockOutlined, MailOutlined } from '@ant-design/icons';
+import { Form, Input, Button, message } from 'antd';
+import { UserOutlined, LockOutlined } from '@ant-design/icons';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { themeConfig } from '../theme';
 
 const Login = () => {
   const [isLogin, setIsLogin] = useState(true);
@@ -11,20 +10,21 @@ const Login = () => {
   const { login, register } = useAuth();
   const navigate = useNavigate();
   const [form] = Form.useForm();
+  const [messageApi, contextHolder] = message.useMessage();
 
   const handleSubmit = async (values) => {
     setLoading(true);
     try {
       if (isLogin) {
         await login(values.username, values.password);
-        message.success('登录成功');
+        messageApi.success('登录成功');
       } else {
         await register(values.username, values.password);
-        message.success('注册成功');
+        messageApi.success('注册成功');
       }
       navigate('/');
     } catch (error) {
-      message.error(error.message);
+      messageApi.error(error.message);
     } finally {
       setLoading(false);
     }
@@ -36,7 +36,8 @@ const Login = () => {
   };
 
   return (
-    <ConfigProvider theme={themeConfig}>
+    <>
+      {contextHolder}
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-100 via-purple-50 to-teal-50 relative overflow-hidden">
         {/* 背景装饰圆圈 */}
         <div className="absolute top-[-10%] left-[-10%] w-[500px] h-[500px] rounded-full bg-blue-400/20 blur-[100px]" />
@@ -131,7 +132,7 @@ const Login = () => {
           </div>
         </div>
       </div>
-    </ConfigProvider>
+    </>
   );
 };
 

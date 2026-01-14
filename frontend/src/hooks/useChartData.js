@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import axios from "axios";
 import request from "../utils/request";
 import { message } from "antd";
 
@@ -23,13 +22,13 @@ export const useChartData = (currentDatasetId, currentDatasetStatus) => {
    */
   const fetchStats = async (id, signal) => {
     try {
-      const res = await axios.get(`/api/stats/${id}`, { signal });
-      setStats(res.data);
-      if (res.data.length > 0) {
-        const metrics = res.data.map((s) => s.metric);
+      const data = await request.getDataWithRetry(`/api/stats/${id}`, { signal }, { retries: 2 });
+      setStats(data);
+      if (Array.isArray(data) && data.length > 0) {
+        const metrics = data.map((s) => s.metric);
         // 如果当前没有选中的指标，或者选中的指标不在新的列表中，默认选中第一个
         if (!selectedMetric || !metrics.includes(selectedMetric)) {
-          setSelectedMetric(res.data[0].metric);
+          setSelectedMetric(data[0].metric);
         }
       } else {
         // 如果没有指标，手动结束 loading，因为不会触发 fetchData
@@ -37,7 +36,7 @@ export const useChartData = (currentDatasetId, currentDatasetStatus) => {
       }
       return true;
     } catch (error) {
-      if (!axios.isCancel(error)) {
+      if (!request.isCanceled?.(error)) {
         console.error(error);
         setLoading(false);
       }
@@ -65,11 +64,11 @@ export const useChartData = (currentDatasetId, currentDatasetStatus) => {
         params.metric = metric;
       }
 
-      const res = await axios.get(url, { params, signal });
-      setChartData(res.data);
+      const data = await request.getData(url, { params, signal });
+      setChartData(data);
       return true;
     } catch (error) {
-      if (!axios.isCancel(error)) {
+      if (!request.isCanceled?.(error)) {
         message.error("加载图表数据失败");
       }
       return false;
